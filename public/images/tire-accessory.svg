@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E2E8F0"/>
+      <stop offset="45%" stop-color="#94A3B8"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="darkBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="blueAccent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0052FF"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <rect width="600" height="600" fill="url(#bgGlow)"/>
+
+  <!-- Subtle floor shadow -->
+  <ellipse cx="300" cy="495" rx="205" ry="22" fill="#0F172A" opacity="0.08"/>
+
+  <!-- Calibrated Torque Wrench (diagonal background) -->
+  <g transform="translate(80 95) rotate(22)" filter="url(#shadow)">
+    <!-- Chrome shaft -->
+    <rect x="65" y="130" width="320" height="22" rx="11" fill="url(#metal)"/>
+    <!-- Grip handle -->
+    <rect x="335" y="122" width="135" height="38" rx="10" fill="url(#darkBody)"/>
+    <rect x="355" y="122" width="10" height="38" fill="#0052FF"/>
+    <rect x="380" y="127" width="75" height="6" rx="3" fill="#334155"/>
+    <rect x="380" y="138" width="75" height="6" rx="3" fill="#334155"/>
+    <rect x="380" y="149" width="75" height="6" rx="3" fill="#334155"/>
+    <!-- Ratchet head -->
+    <circle cx="62" cy="141" r="34" fill="url(#metal)" stroke="#64748B" stroke-width="3"/>
+    <circle cx="62" cy="141" r="17" fill="#0F172A"/>
+    <circle cx="62" cy="141" r="7" fill="#0052FF"/>
+    <!-- Scale markings -->
+    <rect x="260" y="135" width="45" height="12" rx="3" fill="#0F172A" opacity="0.7"/>
+    <line x1="268" y1="141" x2="297" y2="141" stroke="#38BDF8" stroke-width="2" stroke-dasharray="4 3"/>
+  </g>
+
+  <!-- Digital TPMS Tire Pressure Gauge (center-left hero object) -->
+  <g transform="translate(150 185)" filter="url(#shadow)">
+    <!-- Nozzle -->
+    <path d="M98 195 L138 242 L116 260 L78 212 Z" fill="url(#metal)"/>
+    <rect x="115" y="238" width="32" height="16" rx="4" transform="rotate(-38 115 238)" fill="#0F172A"/>
+    <!-- Main Ergonomic Body -->
+    <rect x="20" y="20" width="170" height="190" rx="85" fill="url(#darkBody)" stroke="#334155" stroke-width="4"/>
+    <!-- Electric blue LED ring -->
+    <circle cx="105" cy="115" r="68" stroke="url(#blueAccent)" stroke-width="6" fill="#020617"/>
+    <!-- LCD Display -->
+    <rect x="55" y="84" width="100" height="58" rx="10" fill="#0F172A" stroke="#1E293B" stroke-width="2"/>
+    <text x="105" y="121" text-anchor="middle" fill="#38BDF8" font-family="monospace" font-size="30" font-weight="700">2.4</text>
+    <text x="105" y="136" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="10" font-weight="600">BAR • TPMS</text>
+    <!-- Power / Unit button -->
+    <circle cx="105" cy="162" r="10" fill="#FF5A1F"/>
+  </g>
+
+  <!-- 4 Anodized Alloy Valve Caps (bottom right) -->
+  <g transform="translate(355 340)" filter="url(#shadow)">
+    <g transform="translate(0 0)">
+      <rect x="0" y="14" width="34" height="44" rx="8" fill="url(#darkBody)"/>
+      <rect x="0" y="14" width="34" height="12" rx="4" fill="#0052FF"/>
+      <rect x="6" y="34" width="22" height="4" rx="2" fill="#475569"/>
+      <rect x="6" y="42" width="22" height="4" rx="2" fill="#475569"/>
+    </g>
+    <g transform="translate(46 10)">
+      <rect x="0" y="14" width="34" height="44" rx="8" fill="url(#darkBody)"/>
+      <rect x="0" y="14" width="34" height="12" rx="4" fill="#0052FF"/>
+      <rect x="6" y="34" width="22" height="4" rx="2" fill="#475569"/>
+      <rect x="6" y="42" width="22" height="4" rx="2" fill="#475569"/>
+    </g>
+    <g transform="translate(92 0)">
+      <rect x="0" y="14" width="34" height="44" rx="8" fill="url(#darkBody)"/>
+      <rect x="0" y="14" width="34" height="12" rx="4" fill="#0052FF"/>
+      <rect x="6" y="34" width="22" height="4" rx="2" fill="#475569"/>
+      <rect x="6" y="42" width="22" height="4" rx="2" fill="#475569"/>
+    </g>
+    <g transform="translate(138 10)">
+      <rect x="0" y="14" width="34" height="44" rx="8" fill="url(#darkBody)"/>
+      <rect x="0" y="14" width="34" height="12" rx="4" fill="#0052FF"/>
+      <rect x="6" y="34" width="22" height="4" rx="2" fill="#475569"/>
+      <rect x="6" y="42" width="22" height="4" rx="2" fill="#475569"/>
+    </g>
+  </g>
+</svg>
