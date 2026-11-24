@@ -253,10 +253,16 @@ export function OverviewDashboard() {
             <h1 className="font-display text-2xl font-extrabold tracking-tight text-[#0F172A]">
               Panoramica &amp; Analytics
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#10B981]/30 bg-[#D1FAE5] px-3 py-1 text-xs font-bold text-[#065F46]">
-              <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" />
-              Ultimo sync CSV: {lastSyncFormatted} — OK
-            </span>
+            {data?.lastCsvSync ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#10B981]/30 bg-[#D1FAE5] px-3 py-1 text-xs font-bold text-[#065F46]">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" />
+                Ultimo sync CSV: {lastSyncFormatted} — OK
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1 text-xs font-bold text-[#475569]">
+                Nessun sync CSV ancora eseguito
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-[#475569]">
             Analytics cookieless privacy-first &bull; Logistica dual-source
@@ -574,32 +580,39 @@ export function OverviewDashboard() {
                     <PackageCheck className="h-4 w-4 text-[#10B981]" />
                     Top Gomme Vendute
                   </h3>
-                  <ul className="mt-4 divide-y divide-[#E2E8F0]">
-                    {data.topSoldTires.map((tire) => (
-                      <li
-                        key={tire.sku}
-                        className="flex items-center justify-between gap-3 py-3 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-[#0F172A]">
-                            {tire.brand} {tire.model}
-                          </p>
-                          <p className="tabular-nums text-[#475569]">
-                            {tire.sizeLabel} &bull; IT: {tire.stockItalia} | CN:{" "}
-                            {tire.stockCina}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right tabular-nums">
-                          <p className="font-extrabold text-[#0F172A]">
-                            {tire.units} pz
-                          </p>
-                          <p className="text-[11px] font-semibold text-[#0052FF]">
-                            {formatEur(tire.revenueEur)}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                  {data.topSoldTires.length === 0 ? (
+                    <p className="mt-4 rounded-xl bg-[#F8FAFC] p-4 text-xs text-[#475569]">
+                      Nessuna vendita registrata finora. Le classifiche si
+                      popoleranno automaticamente al primo ordine Stripe.
+                    </p>
+                  ) : (
+                    <ul className="mt-4 divide-y divide-[#E2E8F0]">
+                      {data.topSoldTires.map((tire) => (
+                        <li
+                          key={tire.sku}
+                          className="flex items-center justify-between gap-3 py-3 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-[#0F172A]">
+                              {tire.brand} {tire.model}
+                            </p>
+                            <p className="tabular-nums text-[#475569]">
+                              {tire.sizeLabel} &bull; IT: {tire.stockItalia} |
+                              CN: {tire.stockCina}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right tabular-nums">
+                            <p className="font-extrabold text-[#0F172A]">
+                              {tire.units} pz
+                            </p>
+                            <p className="text-[11px] font-semibold text-[#0052FF]">
+                              {formatEur(tire.revenueEur)}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-card">
@@ -607,36 +620,43 @@ export function OverviewDashboard() {
                     <Search className="h-4 w-4 text-[#FF5A1F]" />
                     Misure Più Cercate (Domanda Reale)
                   </h3>
-                  <ul className="mt-4 divide-y divide-[#E2E8F0]">
-                    {data.searchDemand.map((item) => (
-                      <li
-                        key={item.sizeQuery}
-                        className="flex items-center justify-between gap-2 py-3 text-xs"
-                      >
-                        <div>
-                          <p className="font-mono font-extrabold text-[#0F172A]">
-                            {item.sizeQuery}
-                          </p>
-                          <p className="text-[11px] text-[#475569]">
-                            Cercata{" "}
-                            <strong className="tabular-nums text-[#0F172A]">
-                              {item.searches}
-                            </strong>{" "}
-                            volte
-                          </p>
-                        </div>
-                        {item.stockAlert ? (
-                          <span className="rounded-full bg-[#FEE2E2] px-2.5 py-1 text-[10px] font-extrabold text-[#B91C1C]">
-                            0 in stock IT (CN: {item.stockCina})
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-[#D1FAE5] px-2.5 py-1 text-[10px] font-extrabold text-[#065F46]">
-                            IT: {item.stockItalia} pz OK
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  {data.searchDemand.length === 0 ? (
+                    <p className="mt-4 rounded-xl bg-[#F8FAFC] p-4 text-xs text-[#475569]">
+                      Nessuna ricerca misura registrata. Appariranno qui le
+                      misure cercate realmente dai visitatori sul sito.
+                    </p>
+                  ) : (
+                    <ul className="mt-4 divide-y divide-[#E2E8F0]">
+                      {data.searchDemand.map((item) => (
+                        <li
+                          key={item.sizeQuery}
+                          className="flex items-center justify-between gap-2 py-3 text-xs"
+                        >
+                          <div>
+                            <p className="font-mono font-extrabold text-[#0F172A]">
+                              {item.sizeQuery}
+                            </p>
+                            <p className="text-[11px] text-[#475569]">
+                              Cercata{" "}
+                              <strong className="tabular-nums text-[#0F172A]">
+                                {item.searches}
+                              </strong>{" "}
+                              volte
+                            </p>
+                          </div>
+                          {item.stockAlert ? (
+                            <span className="rounded-full bg-[#FEE2E2] px-2.5 py-1 text-[10px] font-extrabold text-[#B91C1C]">
+                              0 in stock IT (CN: {item.stockCina})
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-[#D1FAE5] px-2.5 py-1 text-[10px] font-extrabold text-[#065F46]">
+                              IT: {item.stockItalia} pz OK
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>
@@ -779,45 +799,52 @@ export function OverviewDashboard() {
                   <Eye className="h-4 w-4 text-[#0052FF]" />
                   Attività Recenti
                 </h2>
-                <ul className="mt-4 space-y-3">
-                  {data.recentActivity.map((act) => (
-                    <li
-                      key={act.id}
-                      className="flex items-start gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs"
-                    >
-                      <div
-                        className={cn(
-                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                          act.type === "warning"
-                            ? "bg-[#FF5A1F]/15 text-[#FF5A1F]"
-                            : act.type === "csv"
-                              ? "bg-[#10B981]/15 text-[#10B981]"
-                              : "bg-[#0052FF]/15 text-[#0052FF]"
-                        )}
+                {data.recentActivity.length === 0 ? (
+                  <p className="mt-4 rounded-xl bg-[#F8FAFC] p-4 text-xs text-[#475569]">
+                    Nessuna attività recente. Nuovi ordini Stripe e caricamenti
+                    CSV appariranno qui in tempo reale.
+                  </p>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {data.recentActivity.map((act) => (
+                      <li
+                        key={act.id}
+                        className="flex items-start gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs"
                       >
-                        {act.type === "warning" ? (
-                          <AlertTriangle className="h-4 w-4" />
-                        ) : act.type === "csv" ? (
-                          <FileSpreadsheet className="h-4 w-4" />
-                        ) : (
-                          <CreditCard className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-[#0F172A]">{act.title}</p>
-                        <p className="mt-0.5 text-[#475569]">{act.subtitle}</p>
-                        <p className="mt-1 text-[10px] font-semibold text-slate-400">
-                          {new Date(act.timestamp).toLocaleString("it-IT", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                            act.type === "warning"
+                              ? "bg-[#FF5A1F]/15 text-[#FF5A1F]"
+                              : act.type === "csv"
+                                ? "bg-[#10B981]/15 text-[#10B981]"
+                                : "bg-[#0052FF]/15 text-[#0052FF]"
+                          )}
+                        >
+                          {act.type === "warning" ? (
+                            <AlertTriangle className="h-4 w-4" />
+                          ) : act.type === "csv" ? (
+                            <FileSpreadsheet className="h-4 w-4" />
+                          ) : (
+                            <CreditCard className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-[#0F172A]">{act.title}</p>
+                          <p className="mt-0.5 text-[#475569]">{act.subtitle}</p>
+                          <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                            {new Date(act.timestamp).toLocaleString("it-IT", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

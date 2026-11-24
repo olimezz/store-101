@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getStoreDb } from "@/lib/admin-store";
+import type { DailyAnalyticsPoint } from "@/lib/admin-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,49 @@ function pctDelta(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
+function formatYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatLabel(d: Date): string {
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
+}
+
+function buildWindowSeries(
+  daysCount: number,
+  endDate: Date,
+  byDate: Map<string, DailyAnalyticsPoint>
+): DailyAnalyticsPoint[] {
+  const result: DailyAnalyticsPoint[] = [];
+  for (let i = daysCount - 1; i >= 0; i--) {
+    const d = new Date(endDate);
+    d.setDate(endDate.getDate() - i);
+    const key = formatYmd(d);
+    const existing = byDate.get(key);
+    result.push(
+      existing ?? {
+        date: key,
+        label: formatLabel(d),
+        uniqueVisits: 0,
+        pageViews: 0,
+        cartAdds: 0,
+        checkoutStarts: 0,
+        paidOrdersCount: 0,
+        stripeUnitsSold: 0,
+        csvUnitsSold: 0,
+        unitsItalia: 0,
+        unitsCina: 0,
+        revenueEur: 0,
+        marginEur: 0,
+      }
+    );
+  }
+  return result;
+}
+
 export async function GET(request: Request) {
   const session = await getAdminSession();
   if (!session || session.role !== "ADMIN") {
@@ -17,44 +61,62 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const range = searchParams.get("range") || "7d"; // today | 7d | 30d | custom
+  const range = searchParams.get("range") || "7d";
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
   const db = getStoreDb();
-  const seriesAll = [...db.dailyAnalytics].sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
+  const byDate = new Map<string, DailyAnalyticsPoint>();
+  for (const p of db.dailyAnalytics) {
+    byDate.set(p.date, p);
+  }
 
-  let currentSlice = seriesAll;
-  let prevSlice = seriesAll.slice(0, 1);
+  const now = new Date();
+  let currentSlice: DailyAnalyticsPoint[];
+  let prevSlice: DailyAnalyticsPoint[];
 
   if (range === "today") {
-    currentSlice = seriesAll.slice(-1);
-    prevSlice = seriesAll.slice(-2, -1);
-  } else if (range === "7d") {
-    currentSlice = seriesAll.slice(-7);
-    prevSlice = seriesAll.slice(-14, -7);
+    currentSlice = buildWindowSeries(1, now, byDate);
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    prevSlice = buildWindowSeries(1, yesterday, byDate);
   } else if (range === "30d") {
-    currentSlice = seriesAll.slice(-30);
-    prevSlice = seriesAll.slice(-30, -15);
+    currentSlice = buildWindowSeries(30, now, byDate);
+    const prevEnd = new Date(now);
+    prevEnd.setDate(now.getDate() - 30);
+    prevSlice = buildWindowSeries(30, prevEnd, byDate);
   } else if (range === "custom" && fromParam && toParam) {
-    currentSlice = seriesAll.filter(
-      (p) => p.date >= fromParam && p.date <= toParam
+    const start = new Date(`${fromParam}T00:00:00`);
+    const end = new Date(`${toParam}T00:00:00`);
+    const diffDays = Math.max(
+      1,
+      Math.min(
+        90,
+        Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+      )
     );
-    if (currentSlice.length === 0) currentSlice = seriesAll.slice(-7);
-    prevSlice = seriesAll.slice(0, currentSlice.length);
+    currentSlice = buildWindowSeries(diffDays, end, byDate);
+    const prevEnd = new Date(start);
+    prevEnd.setDate(start.getDate() - 1);
+    prevSlice = buildWindowSeries(diffDays, prevEnd, byDate);
+  } else {
+    currentSlice = buildWindowSeries(7, now, byDate);
+    const prevEnd = new Date(now);
+    prevEnd.setDate(now.getDate() - 7);
+    prevSlice = buildWindowSeries(7, prevEnd, byDate);
   }
 
   const sum = (
-    list: typeof seriesAll,
-    pick: (item: (typeof seriesAll)[number]) => number
+    list: DailyAnalyticsPoint[],
+    pick: (item: DailyAnalyticsPoint) => number
   ) => list.reduce((acc, item) => acc + pick(item), 0);
 
-  const revenue = Math.round(sum(currentSlice, (p) => p.revenueEur) * 100) / 100;
+  const revenue =
+    Math.round(sum(currentSlice, (p) => p.revenueEur) * 100) / 100;
   const prevRevenue = sum(prevSlice, (p) => p.revenueEur);
 
-  const margin = Math.round(sum(currentSlice, (p) => p.marginEur) * 100) / 100;
+  const margin =
+    Math.round(sum(currentSlice, (p) => p.marginEur) * 100) / 100;
   const prevMargin = sum(prevSlice, (p) => p.marginEur);
 
   const unitsStripe = sum(currentSlice, (p) => p.stripeUnitsSold);
@@ -73,23 +135,20 @@ export async function GET(request: Request) {
   const pageViews = sum(currentSlice, (p) => p.pageViews);
   const cartAdds = sum(currentSlice, (p) => p.cartAdds);
   const checkoutStarts = sum(currentSlice, (p) => p.checkoutStarts);
+  const paidOrders = sum(currentSlice, (p) => p.paidOrdersCount);
+  const prevPaidOrders = sum(prevSlice, (p) => p.paidOrdersCount);
 
-  const estimatedOrdersCount = Math.max(1, Math.round(unitsStripe / 3.4));
   const conversionRatePct =
-    uniqueVisits > 0
-      ? Math.round((estimatedOrdersCount / uniqueVisits) * 10000) / 100
+    uniqueVisits > 0 && paidOrders > 0
+      ? Math.round((paidOrders / uniqueVisits) * 10000) / 100
       : 0;
-  const prevOrdersCount = Math.max(
-    1,
-    Math.round(sum(prevSlice, (p) => p.stripeUnitsSold) / 3.4)
-  );
   const prevConv =
-    prevVisits > 0 ? (prevOrdersCount / prevVisits) * 100 : 0;
+    prevVisits > 0 && prevPaidOrders > 0
+      ? (prevPaidOrders / prevVisits) * 100
+      : 0;
 
   const aovEur =
-    estimatedOrdersCount > 0
-      ? Math.round((revenue / estimatedOrdersCount) * 100) / 100
-      : 0;
+    paidOrders > 0 ? Math.round((revenue / paidOrders) * 100) / 100 : 0;
 
   const pendingOrders = db.orders.filter(
     (o) =>
@@ -101,7 +160,6 @@ export async function GET(request: Request) {
     (o) => o.logisticsOrigin === "split"
   ).length;
 
-  // Top gomme vendute dagli ordini
   const soldBySku = new Map<
     string,
     {
@@ -141,7 +199,6 @@ export async function GET(request: Request) {
     .sort((a, b) => b.units - a.units)
     .slice(0, 6);
 
-  // Arricchisci le misure più cercate con lo stato stock reale (es. "cercata 184 volte ma 0 in stock IT")
   const searchDemandEnriched = db.searchDemand.slice(0, 6).map((item) => {
     const matching = db.products.filter(
       (p) =>
@@ -159,10 +216,12 @@ export async function GET(request: Request) {
   });
 
   const lowStockProducts = db.products.filter(
-    (p) => p.stockItalia + p.stockCina === 0 || p.stockItalia <= db.lowStockThreshold
+    (p) =>
+      p.stockItalia + p.stockCina === 0 || p.stockItalia <= db.lowStockThreshold
   );
 
-  const lastCsv = db.csvImports.find((c) => !c.rolledBack) ?? db.csvImports[0] ?? null;
+  const lastCsv =
+    db.csvImports.find((c) => !c.rolledBack) ?? db.csvImports[0] ?? null;
 
   const recentActivity = [
     ...db.orders.slice(0, 4).map((o) => ({
@@ -210,7 +269,7 @@ export async function GET(request: Request) {
       uniqueVisits,
       cartAdds,
       checkoutStarts,
-      paidOrders: estimatedOrdersCount,
+      paidOrders,
     },
     chartSeries: currentSlice,
     topSoldTires,

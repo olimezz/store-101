@@ -127,6 +127,10 @@ export function SettingsAuditView() {
 
         {loading ? (
           <div className="mt-4 h-36 animate-pulse rounded-xl bg-slate-50" />
+        ) : logs.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-[#F8FAFC] p-5 text-center text-xs font-semibold text-[#475569]">
+            Nessun evento amministrativo registrato finora.
+          </p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-xs">

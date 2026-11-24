@@ -172,6 +172,11 @@ export function CrmManager() {
       <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-card">
         {loading ? (
           <div className="h-52 animate-pulse rounded-2xl bg-slate-50" />
+        ) : customers.length === 0 ? (
+          <p className="p-10 text-center text-sm font-semibold text-[#475569]">
+            Nessun cliente registrato nel CRM. I clienti appariranno
+            automaticamente al primo ordine completato su Stripe.
+          </p>
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">

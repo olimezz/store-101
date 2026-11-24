@@ -496,7 +496,13 @@ export function CsvImportConsole() {
         </p>
 
         <div className="mt-4 space-y-3">
-          {history.map((entry) => (
+          {history.length === 0 ? (
+            <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-center text-xs font-semibold text-[#475569]">
+              Nessun file CSV caricato finora. Trascina il tuo primo file CSV
+              serale qui sopra per iniziare la sincronizzazione reale.
+            </p>
+          ) : (
+            history.map((entry) => (
             <div
               key={entry.id}
               className="flex flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -546,7 +552,8 @@ export function CsvImportConsole() {
                 </button>
               ) : null}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -12,7 +12,6 @@ import type {
   CsvImportAuditEntry,
   DailyAnalyticsPoint,
   OrderLogisticsOrigin,
-  SearchDemandItem,
   SplitOrderPreference,
   StoreDatabase,
 } from "@/lib/admin-types";
@@ -23,13 +22,14 @@ import {
 } from "@/lib/csv-security";
 import { sanitizeText } from "@/lib/sanitize";
 
-const DB_VERSION = 1;
+// Versione 2: database pulito senza dati fittizi o inventati
+const DB_VERSION = 2;
 
 function resolveDbPath(): string {
   if (process.env.VERCEL === "1" || process.env.NODE_ENV === "production") {
-    return path.join("/tmp", "store101-admin-db.json");
+    return path.join("/tmp", "store101-admin-db-v2.json");
   }
-  return path.join(process.cwd(), ".data", "store101-admin-db.json");
+  return path.join(process.cwd(), ".data", "store101-admin-db-v2.json");
 }
 
 function formatDateYmd(date: Date): string {
@@ -43,406 +43,21 @@ function formatDayLabel(date: Date): string {
   return date.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
 }
 
-function buildSeedDatabase(): StoreDatabase {
-  const now = new Date();
-  const dailyAnalytics: DailyAnalyticsPoint[] = [];
-
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const wave = Math.sin((30 - i) * 0.45);
-    const weekendBoost = d.getDay() === 0 || d.getDay() === 6 ? 1.18 : 1.0;
-    const uniqueVisits = Math.round((310 + wave * 65 + (29 - i) * 3.5) * weekendBoost);
-    const pageViews = Math.round(uniqueVisits * 2.85);
-    const cartAdds = Math.round(uniqueVisits * 0.14);
-    const checkoutStarts = Math.round(cartAdds * 0.56);
-    const stripeUnits = Math.max(4, Math.round((10 + wave * 4 + (29 - i) * 0.25) * weekendBoost));
-    const csvUnits = Math.max(0, Math.round(4 + Math.cos(i * 0.7) * 3));
-    const totalUnits = stripeUnits + csvUnits;
-    const unitsItalia = Math.round(totalUnits * 0.68);
-    const unitsCina = Math.max(0, totalUnits - unitsItalia);
-    const revenueEur = Math.round(totalUnits * 212.5 * 100) / 100;
-    const marginEur = Math.round(revenueEur * 0.285 * 100) / 100;
-
-    dailyAnalytics.push({
-      date: formatDateYmd(d),
-      label: formatDayLabel(d),
-      uniqueVisits,
-      pageViews,
-      cartAdds,
-      checkoutStarts,
-      stripeUnitsSold: stripeUnits,
-      csvUnitsSold: csvUnits,
-      unitsItalia,
-      unitsCina,
-      revenueEur,
-      marginEur,
-    });
-  }
-
-  const isoDaysAgo = (days: number, hoursOffset = 0): string => {
-    const dt = new Date(now.getTime() - days * 86400000 - hoursOffset * 3600000);
-    return dt.toISOString();
-  };
-
-  const customers: CrmCustomer[] = [
-    {
-      id: "cust_001",
-      fullName: "Marco Ferretti",
-      email: "marco.ferretti@example.it",
-      phone: "+39 347 8912340",
-      vehicleModel: "BMW 330i Touring (G21)",
-      licensePlate: "GH412KL",
-      tireSize: "245/40R18",
-      ordersCount: 2,
-      lifetimeValueEur: 1845.96,
-      internalNotes: "Cliente ricorrente — preferisce consegna presso officina partner Milano Nord.",
-      privacyConsentAt: isoDaysAgo(14, 3),
-      anonymized: false,
-      anonymizedAt: null,
-      lastOrderAt: isoDaysAgo(1, 4),
-      createdAt: isoDaysAgo(90),
-    },
-    {
-      id: "cust_002",
-      fullName: "Elena Rinaldi",
-      email: "elena.rinaldi@example.it",
-      phone: "+39 338 5520194",
-      vehicleModel: "Audi Q3 Sportback 40 TDI",
-      licensePlate: "GL780MN",
-      tireSize: "235/55R17",
-      ordersCount: 1,
-      lifetimeValueEur: 827.2,
-      internalNotes: "Avvisata sui tempi 5-15 gg lavorativi stock import. Richiede tracking via WhatsApp.",
-      privacyConsentAt: isoDaysAgo(2, 6),
-      anonymized: false,
-      anonymizedAt: null,
-      lastOrderAt: isoDaysAgo(2, 6),
-      createdAt: isoDaysAgo(2, 6),
-    },
-    {
-      id: "cust_003",
-      fullName: "Davide Conti",
-      email: "davide.conti@example.it",
-      phone: "+39 320 4418871",
-      vehicleModel: "Volkswagen Tiguan 2.0 TDI",
-      licensePlate: "FT209BV",
-      tireSize: "215/60R16",
-      ordersCount: 2,
-      lifetimeValueEur: 1124.8,
-      internalNotes: "Ordine Split IT+CN: ha scelto spedizione separata per montare subito le 2 anteriori.",
-      privacyConsentAt: isoDaysAgo(0, 5),
-      anonymized: false,
-      anonymizedAt: null,
-      lastOrderAt: isoDaysAgo(0, 5),
-      createdAt: isoDaysAgo(42),
-    },
-    {
-      id: "cust_004",
-      fullName: "Chiara Bellini",
-      email: "chiara.bellini@example.it",
-      phone: "+39 349 7703122",
-      vehicleModel: "Volkswagen Golf 8 GTI",
-      licensePlate: "GM901TR",
-      tireSize: "225/45R18",
-      ordersCount: 1,
-      lifetimeValueEur: 716.62,
-      internalNotes: "Fattura richiesta con codice SDI aziendale.",
-      privacyConsentAt: isoDaysAgo(5, 2),
-      anonymized: false,
-      anonymizedAt: null,
-      lastOrderAt: isoDaysAgo(5, 2),
-      createdAt: isoDaysAgo(5, 2),
-    },
-    {
-      id: "cust_005",
-      fullName: "Roberto Galli",
-      email: "roberto.galli@example.it",
-      phone: "+39 335 6189045",
-      vehicleModel: "Porsche Macan S",
-      licensePlate: "GP332AX",
-      tireSize: "255/50R19",
-      ordersCount: 3,
-      lifetimeValueEur: 3120.4,
-      internalNotes: "Cliente VIP — acquista treni estivi e invernali ogni stagione.",
-      privacyConsentAt: isoDaysAgo(9, 1),
-      anonymized: false,
-      anonymizedAt: null,
-      lastOrderAt: isoDaysAgo(3, 8),
-      createdAt: isoDaysAgo(180),
-    },
-  ];
-
-  const orders: AdminOrder[] = [
-    {
-      id: "ord_10148",
-      orderNumber: "S101-2026-1048",
-      stripeSessionId: "cs_live_a1b2c3d41048",
-      channel: "stripe",
-      customerId: "cust_003",
-      customerName: "Davide Conti",
-      customerEmail: "davide.conti@example.it",
-      customerPhone: "+39 320 4418871",
-      status: "pagato",
-      logisticsOrigin: "split",
-      splitPreference: "split_shipments",
-      deliveryMode: "home",
-      shippingAddress: "Via Emilia Ponente 142, 40133 Bologna (BO)",
-      carrier: null,
-      trackingCode: null,
-      trackingEmailSentAt: null,
-      lines: [
-        {
-          productId: "prod_bridgestone_blizzak_215_60_16",
-          sku: "BRI-WS90-2156016",
-          brand: "BRIDGESTONE",
-          model: "Blizzak WS90",
-          sizeLabel: "215/60R16",
-          quantity: 4,
-          qtyItalia: 2,
-          qtyCina: 2,
-          unitPriceEur: 165.5,
-          unitCostEur: 116.0,
-        },
-      ],
-      totalUnits: 4,
-      unitsItalia: 2,
-      unitsCina: 2,
-      subtotalEur: 628.9,
-      pfuTotalEur: 14.0,
-      shippingEur: 0,
-      totalEur: 642.9,
-      estimatedMarginEur: 164.9,
-      privacyConsentAt: isoDaysAgo(0, 5),
-      createdAt: isoDaysAgo(0, 5),
-      updatedAt: isoDaysAgo(0, 5),
-    },
-    {
-      id: "ord_10147",
-      orderNumber: "S101-2026-1047",
-      stripeSessionId: "cs_live_a1b2c3d41047",
-      channel: "stripe",
-      customerId: "cust_001",
-      customerName: "Marco Ferretti",
-      customerEmail: "marco.ferretti@example.it",
-      customerPhone: "+39 347 8912340",
-      status: "in_lavorazione_it",
-      logisticsOrigin: "italia",
-      splitPreference: null,
-      deliveryMode: "partner-workshop",
-      shippingAddress: "Officina Partner Monza Gomme, Viale Libertà 88, Monza (MB)",
-      carrier: "BRT",
-      trackingCode: null,
-      trackingEmailSentAt: null,
-      lines: [
-        {
-          productId: "prod_michelin_ps4s_245_40_18",
-          sku: "MIC-PS4S-2454018",
-          brand: "MICHELIN",
-          model: "Pilot Sport 4S",
-          sizeLabel: "245/40R18",
-          quantity: 4,
-          qtyItalia: 4,
-          qtyCina: 0,
-          unitPriceEur: 289.99,
-          unitCostEur: 208.0,
-        },
-      ],
-      totalUnits: 4,
-      unitsItalia: 4,
-      unitsCina: 0,
-      subtotalEur: 1101.96,
-      pfuTotalEur: 14.0,
-      shippingEur: 0,
-      totalEur: 1115.96,
-      estimatedMarginEur: 269.96,
-      privacyConsentAt: isoDaysAgo(1, 4),
-      createdAt: isoDaysAgo(1, 4),
-      updatedAt: isoDaysAgo(1, 1),
-    },
-    {
-      id: "ord_10146",
-      orderNumber: "S101-2026-1046",
-      stripeSessionId: "cs_live_a1b2c3d41046",
-      channel: "stripe",
-      customerId: "cust_002",
-      customerName: "Elena Rinaldi",
-      customerEmail: "elena.rinaldi@example.it",
-      customerPhone: "+39 338 5520194",
-      status: "ordine_fornitore_cn",
-      logisticsOrigin: "cina",
-      splitPreference: null,
-      deliveryMode: "home",
-      shippingAddress: "Corso Francia 210, 10146 Torino (TO)",
-      carrier: "DHL Express Import",
-      trackingCode: null,
-      trackingEmailSentAt: null,
-      lines: [
-        {
-          productId: "prod_goodyear_weatherready_235_55_17",
-          sku: "GDY-AWR-2355517",
-          brand: "GOODYEAR",
-          model: "Assurance WeatherReady",
-          sizeLabel: "235/55R17",
-          quantity: 4,
-          qtyItalia: 0,
-          qtyCina: 4,
-          unitPriceEur: 214.0,
-          unitCostEur: 151.0,
-        },
-      ],
-      totalUnits: 4,
-      unitsItalia: 0,
-      unitsCina: 4,
-      subtotalEur: 813.2,
-      pfuTotalEur: 14.0,
-      shippingEur: 0,
-      totalEur: 827.2,
-      estimatedMarginEur: 209.2,
-      privacyConsentAt: isoDaysAgo(2, 6),
-      createdAt: isoDaysAgo(2, 6),
-      updatedAt: isoDaysAgo(1, 12),
-    },
-    {
-      id: "ord_10145",
-      orderNumber: "S101-2026-1045",
-      stripeSessionId: "cs_live_a1b2c3d41045",
-      channel: "stripe",
-      customerId: "cust_005",
-      customerName: "Roberto Galli",
-      customerEmail: "roberto.galli@example.it",
-      customerPhone: "+39 335 6189045",
-      status: "spedito",
-      logisticsOrigin: "italia",
-      splitPreference: null,
-      deliveryMode: "partner-workshop",
-      shippingAddress: "Centro Gomme Roma Eur, Via Cristoforo Colombo 440, Roma (RM)",
-      carrier: "GLS",
-      trackingCode: "GLS-IT-992841023",
-      trackingEmailSentAt: isoDaysAgo(2, 18),
-      lines: [
-        {
-          productId: "prod_michelin_alpin5_suv_255_50_19",
-          sku: "MIC-PA5S-2555019",
-          brand: "MICHELIN",
-          model: "Pilot Alpin 5 SUV",
-          sizeLabel: "255/50R19",
-          quantity: 4,
-          qtyItalia: 4,
-          qtyCina: 0,
-          unitPriceEur: 276.0,
-          unitCostEur: 198.0,
-        },
-      ],
-      totalUnits: 4,
-      unitsItalia: 4,
-      unitsCina: 0,
-      subtotalEur: 1048.8,
-      pfuTotalEur: 14.0,
-      shippingEur: 0,
-      totalEur: 1062.8,
-      estimatedMarginEur: 256.8,
-      privacyConsentAt: isoDaysAgo(3, 8),
-      createdAt: isoDaysAgo(3, 8),
-      updatedAt: isoDaysAgo(2, 18),
-    },
-    {
-      id: "ord_10144",
-      orderNumber: "S101-2026-1044",
-      stripeSessionId: "cs_live_a1b2c3d41044",
-      channel: "stripe",
-      customerId: "cust_004",
-      customerName: "Chiara Bellini",
-      customerEmail: "chiara.bellini@example.it",
-      customerPhone: "+39 349 7703122",
-      status: "consegnato",
-      logisticsOrigin: "italia",
-      splitPreference: null,
-      deliveryMode: "home",
-      shippingAddress: "Via XX Settembre 34, 37129 Verona (VR)",
-      carrier: "BRT",
-      trackingCode: "BRT-0881927461",
-      trackingEmailSentAt: isoDaysAgo(4, 15),
-      lines: [
-        {
-          productId: "prod_bridgestone_potenza_225_45_18",
-          sku: "BRI-POT-2254518",
-          brand: "BRIDGESTONE",
-          model: "Potenza Sport",
-          sizeLabel: "225/45R18",
-          quantity: 4,
-          qtyItalia: 4,
-          qtyCina: 0,
-          unitPriceEur: 184.9,
-          unitCostEur: 131.0,
-        },
-      ],
-      totalUnits: 4,
-      unitsItalia: 4,
-      unitsCina: 0,
-      subtotalEur: 702.62,
-      pfuTotalEur: 14.0,
-      shippingEur: 0,
-      totalEur: 716.62,
-      estimatedMarginEur: 178.62,
-      privacyConsentAt: isoDaysAgo(5, 2),
-      createdAt: isoDaysAgo(5, 2),
-      updatedAt: isoDaysAgo(3, 10),
-    },
-  ];
-
-  const searchDemand: SearchDemandItem[] = [
-    { sizeQuery: "225/45R17", searches: 184, lastSearchedAt: isoDaysAgo(0, 1) },
-    { sizeQuery: "205/55R16", searches: 156, lastSearchedAt: isoDaysAgo(0, 2) },
-    { sizeQuery: "245/40R18", searches: 132, lastSearchedAt: isoDaysAgo(0, 3) },
-    { sizeQuery: "235/55R17", searches: 97, lastSearchedAt: isoDaysAgo(0, 4) },
-    { sizeQuery: "215/60R16", searches: 84, lastSearchedAt: isoDaysAgo(0, 6) },
-    { sizeQuery: "225/40R18", searches: 71, lastSearchedAt: isoDaysAgo(1, 2) },
-  ];
-
-  const yesterdayEvening = new Date(now);
-  yesterdayEvening.setDate(now.getDate() - 1);
-  yesterdayEvening.setHours(21, 30, 0, 0);
-
-  const csvImports: CsvImportAuditEntry[] = [
-    {
-      id: "csv_seed_001",
-      filename: "giacenze_serali_store101_ieri.csv",
-      uploadedBy: "admin@store101.it",
-      uploadedAt: yesterdayEvening.toISOString(),
-      rowsProcessed: 12,
-      updatedCount: 12,
-      createdCount: 0,
-      errorCount: 0,
-      detectedUnitsSold: 14,
-      rolledBack: false,
-      rolledBackAt: null,
-      previousProductsSnapshot: structuredClone(PRODUCTS),
-    },
-  ];
-
-  const adminAuditLogs: AdminAuditEntry[] = [
-    {
-      id: "audit_seed_001",
-      actorEmail: "admin@store101.it",
-      action: "CSV_APPLY",
-      target: "giacenze_serali_store101_ieri.csv",
-      details: "Sincronizzazione serale completata: 12 SKU aggiornati, 14 unità vendute rilevate.",
-      ip: "127.0.0.1",
-      createdAt: yesterdayEvening.toISOString(),
-    },
-  ];
-
+/**
+ * Inizializza il database completamente vuoto per ordini, CRM, analytics,
+ * ricerche, storico CSV e audit log: verranno mostrati esclusivamente dati reali.
+ */
+function buildCleanDatabase(): StoreDatabase {
   return {
     version: DB_VERSION,
     products: structuredClone(PRODUCTS),
-    orders,
-    customers,
-    dailyAnalytics,
-    searchDemand,
+    orders: [],
+    customers: [],
+    dailyAnalytics: [],
+    searchDemand: [],
     visitorHashesByDay: {},
-    csvImports,
-    adminAuditLogs,
+    csvImports: [],
+    adminAuditLogs: [],
     processedStripeEventIds: [],
     lowStockThreshold: 4,
   };
@@ -458,7 +73,11 @@ function loadDbFromDisk(): StoreDatabase | null {
     if (!fs.existsSync(filePath)) return null;
     const raw = fs.readFileSync(filePath, "utf8");
     const parsed = JSON.parse(raw) as StoreDatabase;
-    if (parsed && parsed.version === DB_VERSION && Array.isArray(parsed.products)) {
+    if (
+      parsed &&
+      parsed.version === DB_VERSION &&
+      Array.isArray(parsed.products)
+    ) {
       return parsed;
     }
     return null;
@@ -481,8 +100,8 @@ function saveDbToDisk(db: StoreDatabase): void {
 }
 
 export function getStoreDb(): StoreDatabase {
-  if (!globalDb.store101AdminDb) {
-    globalDb.store101AdminDb = loadDbFromDisk() ?? buildSeedDatabase();
+  if (!globalDb.store101AdminDb || globalDb.store101AdminDb.version !== DB_VERSION) {
+    globalDb.store101AdminDb = loadDbFromDisk() ?? buildCleanDatabase();
     saveDbToDisk(globalDb.store101AdminDb);
   }
   return globalDb.store101AdminDb;
@@ -505,7 +124,9 @@ export function getLiveProductBySlug(slug: string): Product | undefined {
   return getStoreDb().products.find((p) => p.slug === slug);
 }
 
-export function appendAdminAuditLog(entry: Omit<AdminAuditEntry, "id" | "createdAt">): void {
+export function appendAdminAuditLog(
+  entry: Omit<AdminAuditEntry, "id" | "createdAt">
+): void {
   const db = getStoreDb();
   db.adminAuditLogs.unshift({
     ...entry,
@@ -517,16 +138,18 @@ export function appendAdminAuditLog(entry: Omit<AdminAuditEntry, "id" | "created
 }
 
 function ensureTodayAnalyticsPoint(db: StoreDatabase): DailyAnalyticsPoint {
-  const todayStr = formatDateYmd(new Date());
+  const now = new Date();
+  const todayStr = formatDateYmd(now);
   let point = db.dailyAnalytics.find((p) => p.date === todayStr);
   if (!point) {
     point = {
       date: todayStr,
-      label: formatDayLabel(new Date()),
+      label: formatDayLabel(now),
       uniqueVisits: 0,
       pageViews: 0,
       cartAdds: 0,
       checkoutStarts: 0,
+      paidOrdersCount: 0,
       stripeUnitsSold: 0,
       csvUnitsSold: 0,
       unitsItalia: 0,
@@ -570,7 +193,7 @@ export function recordCookielessAnalyticsEvent(params: {
       db.visitorHashesByDay[today] = hashes;
       point.uniqueVisits += 1;
     }
-    // Mantieni solo gli hash degli ultimi 2 giorni (minimizzazione GDPR)
+    // Mantieni solo gli hash del giorno corrente (minimizzazione GDPR)
     for (const dayKey of Object.keys(db.visitorHashesByDay)) {
       if (dayKey !== today) {
         delete db.visitorHashesByDay[dayKey];
@@ -604,7 +227,10 @@ export function recordCookielessAnalyticsEvent(params: {
   saveStoreDb(db);
 }
 
-function buildProductFromCsvRow(row: ValidatedCsvRow, nextIndex: number): Product {
+function buildProductFromCsvRow(
+  row: ValidatedCsvRow,
+  nextIndex: number
+): Product {
   const match = TIRE_SIZE_REGEX.exec(row.misura);
   const width = match?.[1] ? Number(match[1]) : undefined;
   const aspectRatio = match?.[2] ? Number(match[2]) : undefined;
@@ -653,8 +279,8 @@ function buildProductFromCsvRow(row: ValidatedCsvRow, nextIndex: number): Produc
     costEur,
     stockItalia: row.stock_italia,
     stockCina: row.stock_cina,
-    rating: 4.8,
-    reviewCount: 24,
+    rating: 5.0,
+    reviewCount: 0,
     image,
     isTire: true,
     featured: false,
@@ -672,7 +298,7 @@ function buildProductFromCsvRow(row: ValidatedCsvRow, nextIndex: number): Produc
       noiseDb: 70,
       noiseClass: "B",
     },
-    shortDescription: `${row.brand} ${row.modello} ${row.misura} — importato dal catalogo serale STORE 101.`,
+    shortDescription: `${row.brand} ${row.modello} ${row.misura} — sincronizzato da catalogo CSV STORE 101.`,
     description: `Pneumatico ${seasonLabel.toLowerCase()} ${row.brand} ${row.modello} misura ${row.misura}, disponibile tramite la rete logistica integrata Italia / Import di STORE 101.`,
     highlights: [
       "Sincronizzato in tempo reale tramite gestionale STORE 101",
@@ -747,10 +373,12 @@ export function applyEveningCsv(params: {
 
       if (detectedSold > 0) {
         totalSoldFromCsv += detectedSold;
-        soldItalia += Math.min(detectedSold, itDelta > 0 ? itDelta : detectedSold);
-        soldCina += Math.max(0, detectedSold - Math.min(detectedSold, itDelta > 0 ? itDelta : detectedSold));
+        const fromIt = Math.min(detectedSold, itDelta > 0 ? itDelta : detectedSold);
+        soldItalia += fromIt;
+        soldCina += Math.max(0, detectedSold - fromIt);
         revenueDelta += detectedSold * existing.priceEur;
-        marginDelta += detectedSold * Math.max(0, existing.priceEur - existing.costEur);
+        marginDelta +=
+          detectedSold * Math.max(0, existing.priceEur - existing.costEur);
       }
     } else {
       const created = buildProductFromCsvRow(row, db.products.length + 1);
@@ -759,13 +387,13 @@ export function applyEveningCsv(params: {
     }
   }
 
-  // Aggiorna KPI giornalieri se il CSV ha rilevato vendite riconciliate
   if (totalSoldFromCsv > 0) {
     const today = ensureTodayAnalyticsPoint(db);
     today.csvUnitsSold += totalSoldFromCsv;
     today.unitsItalia += soldItalia;
     today.unitsCina += soldCina;
-    today.revenueEur = Math.round((today.revenueEur + revenueDelta) * 100) / 100;
+    today.revenueEur =
+      Math.round((today.revenueEur + revenueDelta) * 100) / 100;
     today.marginEur = Math.round((today.marginEur + marginDelta) * 100) / 100;
   }
 
@@ -892,7 +520,8 @@ export function recordStripePaidOrderIdempotent(params: {
     totalUnits += qty;
     unitsItalia += takeIt;
     unitsCina += takeCn;
-    estimatedMarginEur += Math.max(0, product.priceEur - product.costEur) * qty;
+    estimatedMarginEur +=
+      Math.max(0, product.priceEur - product.costEur) * qty;
   }
 
   const logisticsOrigin: OrderLogisticsOrigin =
@@ -904,7 +533,6 @@ export function recordStripePaidOrderIdempotent(params: {
 
   const nowIso = new Date().toISOString();
 
-  // Upsert CRM Customer
   const emailLower = params.customerEmail.trim().toLowerCase();
   let customer = db.customers.find(
     (c) => !c.anonymized && c.email.toLowerCase() === emailLower
@@ -915,12 +543,12 @@ export function recordStripePaidOrderIdempotent(params: {
       fullName: sanitizeText(params.customerName || "Cliente STORE 101", 90),
       email: emailLower,
       phone: sanitizeText(params.customerPhone || "", 32),
-      vehicleModel: "Da completare",
+      vehicleModel: "",
       licensePlate: "",
       tireSize: lines[0]?.sizeLabel ?? "",
       ordersCount: 1,
       lifetimeValueEur: params.totalEur,
-      internalNotes: "Creato automaticamente da checkout Stripe.",
+      internalNotes: "",
       privacyConsentAt: nowIso,
       anonymized: false,
       anonymizedAt: null,
@@ -938,9 +566,10 @@ export function recordStripePaidOrderIdempotent(params: {
     }
   }
 
+  const nextSeq = db.orders.length + 1;
   const order: AdminOrder = {
     id: `ord_${crypto.randomBytes(5).toString("hex")}`,
-    orderNumber: `S101-2026-${Math.floor(1050 + Math.random() * 8900)}`,
+    orderNumber: `S101-${new Date().getFullYear()}-${String(nextSeq).padStart(4, "0")}`,
     stripeSessionId: params.stripeSessionId,
     channel: "stripe",
     customerId: customer.id,
@@ -949,7 +578,10 @@ export function recordStripePaidOrderIdempotent(params: {
     customerPhone: customer.phone || null,
     status: "pagato",
     logisticsOrigin,
-    splitPreference: logisticsOrigin === "split" ? params.splitPreference ?? "split_shipments" : null,
+    splitPreference:
+      logisticsOrigin === "split"
+        ? params.splitPreference ?? "split_shipments"
+        : null,
     deliveryMode: params.deliveryMode,
     shippingAddress: sanitizeText(params.shippingAddress || "Italia", 200),
     carrier: null,
@@ -959,7 +591,10 @@ export function recordStripePaidOrderIdempotent(params: {
     totalUnits,
     unitsItalia,
     unitsCina,
-    subtotalEur: Math.max(0, params.totalEur - params.pfuTotalEur - params.shippingEur),
+    subtotalEur: Math.max(
+      0,
+      params.totalEur - params.pfuTotalEur - params.shippingEur
+    ),
     pfuTotalEur: params.pfuTotalEur,
     shippingEur: params.shippingEur,
     totalEur: params.totalEur,
@@ -972,11 +607,14 @@ export function recordStripePaidOrderIdempotent(params: {
   db.orders.unshift(order);
 
   const today = ensureTodayAnalyticsPoint(db);
+  today.paidOrdersCount += 1;
   today.stripeUnitsSold += totalUnits;
   today.unitsItalia += unitsItalia;
   today.unitsCina += unitsCina;
-  today.revenueEur = Math.round((today.revenueEur + params.totalEur) * 100) / 100;
-  today.marginEur = Math.round((today.marginEur + estimatedMarginEur) * 100) / 100;
+  today.revenueEur =
+    Math.round((today.revenueEur + params.totalEur) * 100) / 100;
+  today.marginEur =
+    Math.round((today.marginEur + estimatedMarginEur) * 100) / 100;
 
   saveStoreDb(db);
   return { duplicated: false, order };
@@ -1077,11 +715,11 @@ export function anonymizeCustomerGdpr(params: {
   customer.phone = "";
   customer.licensePlate = "";
   customer.vehicleModel = "Dato rimosso (Art. 17 GDPR)";
-  customer.internalNotes = "Dati personali anonimizzati ai sensi dell'Art. 17 GDPR. Storico fiscale ordini preservato per 10 anni.";
+  customer.internalNotes =
+    "Dati personali anonimizzati ai sensi dell'Art. 17 GDPR. Storico fiscale ordini preservato per 10 anni.";
   customer.anonymized = true;
   customer.anonymizedAt = nowIso;
 
-  // Anonimizza PII negli ordini collegati preservando importi fiscali, SKU e PFU
   for (const order of db.orders) {
     if (order.customerId === customer.id) {
       order.customerName = customer.fullName;

@@ -80,6 +80,7 @@ export interface DailyAnalyticsPoint {
   pageViews: number;
   cartAdds: number;
   checkoutStarts: number;
+  paidOrdersCount: number;
   stripeUnitsSold: number;
   csvUnitsSold: number;
   unitsItalia: number;

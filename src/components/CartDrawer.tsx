@@ -51,7 +51,6 @@ export function CartDrawer() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [stripeNotConfigured, setStripeNotConfigured] = useState(false);
 
   const progressPct = Math.min(
     100,
@@ -67,7 +66,6 @@ export function CartDrawer() {
 
   const handleCheckout = async () => {
     setCheckoutError(null);
-    setStripeNotConfigured(false);
 
     if (items.length === 0) return;
     if (!acceptTerms) {
@@ -108,9 +106,6 @@ export function CartDrawer() {
       };
 
       if (!response.ok) {
-        if (data.code === "STRIPE_NOT_CONFIGURED") {
-          setStripeNotConfigured(true);
-        }
         setCheckoutError(
           data.error ?? "Impossibile avviare il checkout Stripe."
         );
@@ -602,21 +597,7 @@ export function CartDrawer() {
                 >
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                    <div className="space-y-1.5">
-                      <p className="font-semibold">{checkoutError}</p>
-                      {stripeNotConfigured ? (
-                        <div className="pt-1">
-                          <Link
-                            href="/checkout/success?demo=true"
-                            onClick={closeCart}
-                            className="inline-flex items-center gap-1 font-bold text-[#0052FF] underline"
-                          >
-                            Visualizza anteprima pagina conferma ordine
-                            <ArrowRight className="h-3 w-3" />
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
+                    <p className="font-semibold">{checkoutError}</p>
                   </div>
                 </div>
               ) : null}
