@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { PRODUCTS, type Product } from "@/data/products";
+import { matchesTireSize, parseTireSize } from "@/lib/tire-size";
 
 export type CategoryNavKey =
   | "tutti"
@@ -23,9 +24,7 @@ export type SortOption = "featured" | "price-asc" | "price-desc" | "rating";
 
 export interface CatalogFilters {
   category: CategoryNavKey;
-  width: string;
-  aspectRatio: string;
-  diameter: string;
+  tireSize: string;
   season: string;
   brand: string;
   search: string;
@@ -34,9 +33,7 @@ export interface CatalogFilters {
 
 const DEFAULT_FILTERS: CatalogFilters = {
   category: "tutti",
-  width: "all",
-  aspectRatio: "all",
-  diameter: "all",
+  tireSize: "",
   season: "all",
   brand: "all",
   search: "",
@@ -114,9 +111,7 @@ export function CatalogFilterProvider({
   const hasActiveFilters = useMemo(() => {
     return (
       filters.category !== "tutti" ||
-      filters.width !== "all" ||
-      filters.aspectRatio !== "all" ||
-      filters.diameter !== "all" ||
+      parseTireSize(filters.tireSize).digits.length > 0 ||
       filters.season !== "all" ||
       filters.brand !== "all" ||
       filters.search.trim().length > 0
@@ -148,22 +143,7 @@ export function CatalogFilterProvider({
       if (filters.season !== "all" && product.season !== filters.season) {
         return false;
       }
-      if (
-        filters.width !== "all" &&
-        String(product.width ?? "") !== filters.width
-      ) {
-        return false;
-      }
-      if (
-        filters.aspectRatio !== "all" &&
-        String(product.aspectRatio ?? "") !== filters.aspectRatio
-      ) {
-        return false;
-      }
-      if (
-        filters.diameter !== "all" &&
-        (product.diameter ?? "") !== filters.diameter
-      ) {
+      if (!matchesTireSize(product, filters.tireSize)) {
         return false;
       }
       if (filters.brand !== "all" && product.brand !== filters.brand) {
@@ -171,12 +151,24 @@ export function CatalogFilterProvider({
       }
 
       if (query.length > 0) {
+        const diamDigits = (product.diameter ?? "").replace(/\D/g, "");
+        const numericSize =
+          product.width && product.aspectRatio && diamDigits
+            ? `${product.width}${product.aspectRatio}${diamDigits}`
+            : "";
+        const slashSize =
+          product.width && product.aspectRatio && diamDigits
+            ? `${product.width}/${product.aspectRatio}/${diamDigits}`
+            : "";
+
         const searchable = [
           product.sku,
           product.brand,
           product.model,
           product.sizeLabel,
           product.sizeLabel.replace(/\//g, ""),
+          numericSize,
+          slashSize,
           product.seasonLabel,
           product.vehicleLabel,
           product.shortDescription,

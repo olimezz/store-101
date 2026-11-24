@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import * as Select from "@radix-ui/react-select";
 import {
   Check,
@@ -9,15 +9,21 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
-import {
-  getUniqueAspectRatios,
-  getUniqueBrands,
-  getUniqueDiameters,
-  getUniqueWidths,
-} from "@/data/products";
+import { getUniqueBrands } from "@/data/products";
 import { useCatalogFilter } from "@/context/CatalogFilterContext";
 import { SupportModal } from "@/components/SupportModal";
+import { formatTireSizeInput, parseTireSize } from "@/lib/tire-size";
+import { cn } from "@/lib/utils";
+
+const POPULAR_SIZES = [
+  { digits: "2454018", label: "245/40R18" },
+  { digits: "2254517", label: "225/45R17" },
+  { digits: "2055516", label: "205/55R16" },
+  { digits: "2355517", label: "235/55R17" },
+  { digits: "2553519", label: "255/35R19" },
+];
 
 interface FinderSelectProps {
   label: string;
@@ -25,6 +31,7 @@ interface FinderSelectProps {
   onValueChange: (val: string) => void;
   placeholder: string;
   options: { value: string; label: string }[];
+  className?: string;
 }
 
 function FinderSelect({
@@ -33,9 +40,10 @@ function FinderSelect({
   onValueChange,
   placeholder,
   options,
+  className,
 }: FinderSelectProps) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-[11px] font-bold uppercase tracking-wider text-[#475569]">
         {label}
       </span>
@@ -46,7 +54,7 @@ function FinderSelect({
         >
           <Select.Value placeholder={placeholder} />
           <Select.Icon>
-            <ChevronDown className="h-4 w-4 text-[#475569]" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-[#475569]" />
           </Select.Icon>
         </Select.Trigger>
 
@@ -97,59 +105,12 @@ export function TireFinderBar() {
     resetFilters,
   } = useCatalogFilter();
   const [supportOpen, setSupportOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Opzioni a cascata intelligenti in base ai filtri selezionati
-  const widthOptions = useMemo(
-    () =>
-      getUniqueWidths(products).map((w) => ({
-        value: String(w),
-        label: `${w} mm`,
-      })),
-    [products]
+  const parsedSize = useMemo(
+    () => parseTireSize(filters.tireSize),
+    [filters.tireSize]
   );
-
-  const ratioOptions = useMemo(() => {
-    const relevant = products.filter(
-      (p) =>
-        p.isTire &&
-        (filters.width === "all" || String(p.width) === filters.width)
-    );
-    const ratios =
-      relevant.length > 0
-        ? Array.from(
-            new Set(
-              relevant
-                .map((p) => p.aspectRatio)
-                .filter((r): r is number => typeof r === "number")
-            )
-          ).sort((a, b) => a - b)
-        : getUniqueAspectRatios(products);
-
-    return ratios.map((r) => ({ value: String(r), label: `/${r}` }));
-  }, [filters.width, products]);
-
-  const diameterOptions = useMemo(() => {
-    const relevant = products.filter(
-      (p) =>
-        p.isTire &&
-        (filters.width === "all" || String(p.width) === filters.width) &&
-        (filters.aspectRatio === "all" ||
-          String(p.aspectRatio) === filters.aspectRatio)
-    );
-    const diams =
-      relevant.length > 0
-        ? Array.from(
-            new Set(
-              relevant
-                .map((p) => p.diameter)
-                .filter((d): d is string => typeof d === "string")
-            )
-          ).sort()
-        : getUniqueDiameters(products);
-
-    return diams.map((d) => ({ value: d, label: d }));
-  }, [filters.width, filters.aspectRatio, products]);
-
   const seasonOptions = [
     { value: "estivi", label: "Estivi" },
     { value: "invernali", label: "Invernali" },
@@ -161,30 +122,34 @@ export function TireFinderBar() {
     [products]
   );
 
-  const handleWidthChange = (val: string) => {
-    setFilter("width", val);
-    setFilter("aspectRatio", "all");
-    setFilter("diameter", "all");
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatTireSizeInput(e.target.value, filters.tireSize);
+    setFilter("tireSize", formatted);
   };
 
-  const handleRatioChange = (val: string) => {
-    setFilter("aspectRatio", val);
-    setFilter("diameter", "all");
+  const handleClearSize = () => {
+    setFilter("tireSize", "");
+    inputRef.current?.focus();
   };
 
-  const handleSearchClick = () => {
-    if (
-      filters.width !== "all" &&
-      filters.aspectRatio !== "all" &&
-      filters.diameter !== "all"
-    ) {
-      const sizeQuery = `${filters.width}/${filters.aspectRatio}${filters.diameter}`;
-      void fetch("/api/analytics/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "search", sizeQuery }),
-      }).catch(() => undefined);
-    }
+  const trackSizeSearch = (sizeQuery: string | null) => {
+    if (!sizeQuery) return;
+    void fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "search", sizeQuery }),
+    }).catch(() => undefined);
+  };
+
+  const handleSelectPopular = (digits: string) => {
+    const formatted = formatTireSizeInput(digits);
+    setFilter("tireSize", formatted);
+    trackSizeSearch(parseTireSize(formatted).standardLabel);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    trackSizeSearch(parsedSize.standardLabel);
     document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -206,11 +171,17 @@ export function TireFinderBar() {
                 Trova il tuo Pneumatico
               </h2>
               <p className="text-xs text-[#475569]">
-                Leggi la misura sul fianco della gomma (es.{" "}
+                Digita solo i numeri della misura (es.{" "}
                 <span className="font-semibold tabular-nums text-[#0F172A]">
-                  245 / 40 R18
+                  245 40 18
+                </span>{" "}
+                per{" "}
+                <span className="font-semibold tabular-nums text-[#0F172A]">
+                  245/40R18
                 </span>
-                ) e filtra istantaneamente
+                ): gli{" "}
+                <span className="font-semibold text-[#0F172A]">/</span> si
+                inseriscono in automatico
               </p>
             </div>
           </div>
@@ -237,29 +208,52 @@ export function TireFinderBar() {
           </div>
         </div>
 
-        {/* Cascading dropdowns + Orange CTA */}
-        <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
-          <FinderSelect
-            label="Larghezza"
-            value={filters.width}
-            onValueChange={handleWidthChange}
-            placeholder="Tutte"
-            options={widthOptions}
-          />
-          <FinderSelect
-            label="Altezza / Spalla"
-            value={filters.aspectRatio}
-            onValueChange={handleRatioChange}
-            placeholder="Tutte"
-            options={ratioOptions}
-          />
-          <FinderSelect
-            label="Diametro"
-            value={filters.diameter}
-            onValueChange={(val) => setFilter("diameter", val)}
-            placeholder="Tutti"
-            options={diameterOptions}
-          />
+        {/* Numeric Tire Size Input + Season/Brand filters + Orange CTA */}
+        <form
+          onSubmit={handleSearchSubmit}
+          className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-12 lg:items-end"
+        >
+          <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4">
+            <label
+              htmlFor="tire-size-input"
+              className="text-[11px] font-bold uppercase tracking-wider text-[#475569]"
+            >
+              Misura Gomme (Larghezza / Spalla / Cerchio)
+            </label>
+            <div className="relative flex items-center">
+              <input
+                ref={inputRef}
+                id="tire-size-input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                spellCheck={false}
+                value={filters.tireSize}
+                onChange={handleSizeChange}
+                placeholder="es. 245/40/18"
+                aria-describedby="tire-size-helper"
+                className="min-h-[46px] w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-3.5 pr-28 text-base font-bold tracking-wider tabular-nums text-[#0F172A] placeholder:font-medium placeholder:tracking-normal placeholder:text-[#94A3B8] transition-colors hover:border-[#0052FF]/50 hover:bg-white focus:border-[#0052FF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0052FF]/20"
+              />
+              <div className="absolute right-2 flex items-center gap-1">
+                {parsedSize.standardLabel ? (
+                  <span className="rounded-md bg-[#0052FF]/10 px-2 py-1 text-[11px] font-extrabold tabular-nums text-[#0052FF]">
+                    {parsedSize.standardLabel}
+                  </span>
+                ) : null}
+                {filters.tireSize.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleClearSize}
+                    aria-label="Cancella misura"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] transition-colors hover:bg-slate-200/70 hover:text-[#0F172A]"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <FinderSelect
             label="Stagione"
             value={filters.season}
@@ -269,25 +263,85 @@ export function TireFinderBar() {
             }}
             placeholder="Tutte"
             options={seasonOptions}
+            className="lg:col-span-2"
           />
+
           <FinderSelect
             label="Brand"
             value={filters.brand}
             onValueChange={(val) => setFilter("brand", val)}
             placeholder="Tutti i Brand"
             options={brandOptions}
+            className="lg:col-span-3"
           />
 
           <button
-            type="button"
-            onClick={handleSearchClick}
-            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#FF5A1F] px-5 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_10px_22px_-6px_rgba(255,90,31,0.55)] transition-colors hover:bg-[#E0440C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A1F] focus-visible:ring-offset-2"
+            type="submit"
+            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#FF5A1F] px-5 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_10px_22px_-6px_rgba(255,90,31,0.55)] transition-colors hover:bg-[#E0440C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A1F] focus-visible:ring-offset-2 sm:col-span-2 lg:col-span-3"
           >
             <Search className="h-4 w-4" aria-hidden="true" />
-            <span>
-              Cerca ({filteredProducts.length})
-            </span>
+            <span>Cerca ({filteredProducts.length})</span>
           </button>
+        </form>
+
+        {/* Live decoded size feedback OR popular quick-select sizes */}
+        <div
+          id="tire-size-helper"
+          className="mt-3.5 flex flex-wrap items-center gap-2 text-xs text-[#475569]"
+        >
+          {parsedSize.digits.length > 0 ? (
+            <>
+              <span className="font-semibold text-[#475569]">
+                Misura riconosciuta:
+              </span>
+              <span
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 font-semibold tabular-nums",
+                  parsedSize.width.length === 3
+                    ? "border-[#0052FF]/30 bg-[#0052FF]/10 text-[#0052FF]"
+                    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
+                )}
+              >
+                Larghezza: {parsedSize.width || "___"} mm
+              </span>
+              <span
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 font-semibold tabular-nums",
+                  parsedSize.aspectRatio.length === 2
+                    ? "border-[#0052FF]/30 bg-[#0052FF]/10 text-[#0052FF]"
+                    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
+                )}
+              >
+                Spalla: /{parsedSize.aspectRatio || "__"}
+              </span>
+              <span
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 font-semibold tabular-nums",
+                  parsedSize.diameter.length === 2
+                    ? "border-[#0052FF]/30 bg-[#0052FF]/10 text-[#0052FF]"
+                    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
+                )}
+              >
+                Cerchio: R{parsedSize.diameter || "__"}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-[#64748B]">
+                Misure popolari:
+              </span>
+              {POPULAR_SIZES.map((size) => (
+                <button
+                  key={size.digits}
+                  type="button"
+                  onClick={() => handleSelectPopular(size.digits)}
+                  className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 font-semibold tabular-nums text-[#0F172A] transition-colors hover:border-[#0052FF] hover:bg-[#0052FF]/10 hover:text-[#0052FF]"
+                >
+                  {size.label}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
 

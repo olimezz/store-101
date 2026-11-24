@@ -16,8 +16,13 @@ export function HeroSection() {
   const tireY = useTransform(scrollYProgress, [0, 1], [0, 42]);
   const tireScale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
 
-  const scrollTo = (id: string) => {
+  const scrollTo = (id: string, focusId?: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (focusId) {
+      window.setTimeout(() => {
+        document.getElementById(focusId)?.focus({ preventScroll: true });
+      }, 350);
+    }
   };
 
   return (
@@ -90,7 +95,7 @@ export function HeroSection() {
 
             <button
               type="button"
-              onClick={() => scrollTo("configuratore-misure")}
+              onClick={() => scrollTo("configuratore-misure", "tire-size-input")}
               className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 text-sm font-bold uppercase tracking-wide text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               <SlidersHorizontal className="h-4 w-4 text-[#FF5A1F]" aria-hidden="true" />
