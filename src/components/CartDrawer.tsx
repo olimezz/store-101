@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { LogisticsBadge } from "@/components/LogisticsBadge";
 import { FREE_SHIPPING_THRESHOLD_EUR } from "@/lib/pricing";
 import { cn, formatEur } from "@/lib/utils";
 
@@ -44,6 +45,9 @@ export function CartDrawer() {
   const [deliveryMode, setDeliveryMode] = useState<"home" | "partner-workshop">(
     "home"
   );
+  const [splitPreference, setSplitPreference] = useState<
+    "split_shipments" | "single_consolidated"
+  >("split_shipments");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -74,6 +78,12 @@ export function CartDrawer() {
     }
 
     setCheckoutLoading(true);
+    void fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "checkout_start" }),
+    }).catch(() => undefined);
+
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -87,6 +97,7 @@ export function CartDrawer() {
           customerEmail: customerEmail.trim() || undefined,
           acceptTerms: true,
           deliveryMode,
+          splitPreference: order.hasSplitOrder ? splitPreference : undefined,
         }),
       });
 
@@ -255,6 +266,9 @@ export function CartDrawer() {
                                 {line.product.seasonLabel} &bull;{" "}
                                 {line.product.sizeLabel}
                               </p>
+                              <div className="mt-1.5">
+                                <LogisticsBadge logistics={line.logistics} />
+                              </div>
                             </div>
                             <button
                               type="button"
@@ -363,6 +377,52 @@ export function CartDrawer() {
                     </button>
                   </div>
                 </div>
+
+                {/* Split Order Logistics Choice (Magazzino Italia + Import Cina) */}
+                {order.hasSplitOrder ? (
+                  <div className="rounded-2xl border border-[#FF5A1F]/40 bg-[#FFF7ED] p-3.5">
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-[#C2410C]">
+                      Ordine Misto Rilevato ({order.totalFromItalia} pz IT +{" "}
+                      {order.totalFromCina} pz Import)
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-[#7C2D12]">
+                      Scegli come preferisci ricevere gli pneumatici:
+                    </p>
+                    <div className="mt-2.5 grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSplitPreference("split_shipments")}
+                        className={cn(
+                          "min-h-[44px] rounded-xl border px-3 py-2 text-left text-xs transition-colors",
+                          splitPreference === "split_shipments"
+                            ? "border-[#FF5A1F] bg-white font-bold text-[#0F172A] shadow-sm"
+                            : "border-[#FDBA74]/60 bg-white/50 text-[#7C2D12]"
+                        )}
+                      >
+                        <span className="block">Spedizione separata (Consigliata)</span>
+                        <span className="text-[11px] font-normal text-[#475569]">
+                          {order.totalFromItalia} pz in 4-7 gg (Italia) +{" "}
+                          {order.totalFromCina} pz in 5-15 gg lav.
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplitPreference("single_consolidated")}
+                        className={cn(
+                          "min-h-[44px] rounded-xl border px-3 py-2 text-left text-xs transition-colors",
+                          splitPreference === "single_consolidated"
+                            ? "border-[#FF5A1F] bg-white font-bold text-[#0F172A] shadow-sm"
+                            : "border-[#FDBA74]/60 bg-white/50 text-[#7C2D12]"
+                        )}
+                      >
+                        <span className="block">Spedizione unica consolidata</span>
+                        <span className="text-[11px] font-normal text-[#475569]">
+                          Tutti i {order.totalQuantity} pezzi insieme in 5-15 gg lav.
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {/* Promo Code */}
                 <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">

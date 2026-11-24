@@ -4,10 +4,11 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, ShoppingCart, Star, Truck } from "lucide-react";
-import type { Product } from "@/data/products";
+import { Check, ShoppingCart, Star } from "lucide-react";
+import { evaluateProductLogistics, type Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import { EuEnergyLabel, SeasonBadge } from "@/components/SeasonBadge";
+import { LogisticsBadge } from "@/components/LogisticsBadge";
 import { cn, formatEur } from "@/lib/utils";
 import { FULL_SET_DISCOUNT_RATE } from "@/lib/pricing";
 
@@ -29,8 +30,14 @@ export function ProductCard({
     ? product.priceEur * (1 - FULL_SET_DISCOUNT_RATE)
     : product.priceEur;
   const totalForSelection = effectiveUnitPrice * selectedQty;
+  const logistics = evaluateProductLogistics(
+    product.stockItalia,
+    product.stockCina,
+    selectedQty
+  );
 
   const handleAdd = () => {
+    if (!logistics.canFulfill) return;
     addItem(product.id, selectedQty);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1600);
@@ -60,10 +67,14 @@ export function ProductCard({
           <SeasonBadge season={product.season} label={product.seasonLabel} />
         </div>
 
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#FF5A1F]/10 px-2.5 py-1 text-[11px] font-bold text-[#FF5A1F]">
-          <Truck className="h-3 w-3" aria-hidden="true" />
-          24/48h
-        </span>
+        <LogisticsBadge
+          logistics={evaluateProductLogistics(
+            product.stockItalia,
+            product.stockCina,
+            1
+          )}
+          showDeliveryText={false}
+        />
       </div>
 
       {/* Product Studio Image */}
@@ -116,7 +127,7 @@ export function ProductCard({
         </div>
 
         {/* EU Energy Label or Accessory spec */}
-        <div className="mt-3">
+        <div className="mt-3 space-y-2">
           {product.euLabel ? (
             <EuEnergyLabel euLabel={product.euLabel} compact />
           ) : (
@@ -124,6 +135,7 @@ export function ProductCard({
               {product.shortDescription}
             </p>
           )}
+          <LogisticsBadge logistics={logistics} className="w-full justify-start" />
         </div>
 
         {/* Price Block */}
@@ -208,16 +220,23 @@ export function ProductCard({
         <div className="mt-4 pt-1">
           <motion.button
             type="button"
-            whileTap={{ scale: 0.98 }}
+            disabled={!logistics.canFulfill}
+            whileTap={logistics.canFulfill ? { scale: 0.98 } : undefined}
             onClick={handleAdd}
             className={cn(
-              "flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0052FF] focus-visible:ring-offset-2",
+              "flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0052FF] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600",
               added
                 ? "bg-[#10B981] hover:bg-[#059669]"
                 : "bg-[#0052FF] hover:bg-[#003ECC]"
             )}
           >
-            {added ? (
+            {!logistics.canFulfill ? (
+              <span>
+                {logistics.type === "out_of_stock"
+                  ? "Temporaneamente Esaurito"
+                  : `Solo ${logistics.totalAvailable} disponibili`}
+              </span>
+            ) : added ? (
               <>
                 <Check className="h-4 w-4 stroke-[3]" aria-hidden="true" />
                 <span>Aggiunto ✓</span>

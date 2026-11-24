@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { getStripeServer, isStripeConfigured } from "@/lib/stripe";
 import { checkoutRequestSchema } from "@/lib/validation";
 import { upsertOrder } from "@/lib/orders";
+import { getLiveProducts } from "@/lib/admin-store";
 
 export const runtime = "nodejs";
 
@@ -52,15 +53,27 @@ export async function POST(request: Request) {
     );
   }
 
-  const { items, promoCode, customerEmail, deliveryMode } = parsed.data;
+  const { items, promoCode, customerEmail, deliveryMode, splitPreference } =
+    parsed.data;
 
-  // Ricalcolo prezzi ESCLUSIVAMENTE lato server dal catalogo certificato
-  const order = calculateOrder(items, promoCode);
+  // Ricalcolo prezzi e verifica giacenze IT/CN ESCLUSIVAMENTE lato server
+  const liveCatalog = getLiveProducts();
+  const order = calculateOrder(items, promoCode, liveCatalog);
 
   if (order.lines.length === 0) {
     return NextResponse.json(
-      { error: "Nessun prodotto valido presente nel carrello." },
+      { error: "Nessun prodotto disponibile presente nel carrello." },
       { status: 400 }
+    );
+  }
+
+  const unavailableLine = order.lines.find((l) => !l.logistics.canFulfill);
+  if (unavailableLine) {
+    return NextResponse.json(
+      {
+        error: `Disponibilità insufficiente per ${unavailableLine.product.brand} ${unavailableLine.product.model} (disponibili: ${unavailableLine.logistics.totalAvailable}).`,
+      },
+      { status: 409 }
     );
   }
 
@@ -75,6 +88,9 @@ export async function POST(request: Request) {
           pfuTotalEur: order.pfuTotalEur,
           shippingEur: order.shippingEur,
           totalQuantity: order.totalQuantity,
+          totalFromItalia: order.totalFromItalia,
+          totalFromCina: order.totalFromCina,
+          hasSplitOrder: order.hasSplitOrder,
         },
       },
       { status: 503 }
@@ -90,7 +106,6 @@ export async function POST(request: Request) {
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
       order.lines.map((line) => {
-        // Calcolo del prezzo unitario netto scontato in caso di treno completo da 4 gomme
         const effectiveUnitCents = Math.round(
           eurToCents(line.lineNetEur) / line.quantity
         );
@@ -104,9 +119,10 @@ export async function POST(request: Request) {
             unit_amount: effectiveUnitCents,
             product_data: {
               name: `${line.product.brand} ${line.product.model}`,
-              description: `${line.product.seasonLabel} | ${line.product.sizeLabel}${setLabel}`,
+              description: `${line.product.seasonLabel} | ${line.product.sizeLabel} | ${line.logistics.deliveryEstimate}${setLabel}`,
               metadata: {
                 productId: line.product.id,
+                sku: line.product.sku,
                 size: line.product.sizeLabel,
               },
             },
@@ -130,7 +146,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Eventuale codice promo verificato lato server applicato come sconto one-time Stripe
     let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
     if (order.promo?.valid && order.promo.discountEur > 0) {
       const coupon = await stripe.coupons.create({
@@ -142,6 +157,19 @@ export async function POST(request: Request) {
       discounts = [{ coupon: coupon.id }];
     }
 
+    const minBusinessDays = order.hasChinaImport && !order.hasSplitOrder ? 5 : 4;
+    const maxBusinessDays = order.hasChinaImport ? 15 : 7;
+
+    const shippingLabel = order.hasSplitOrder
+      ? splitPreference === "single_consolidated"
+        ? "Spedizione Unica Consolidata (5-15 gg lav.)"
+        : "Spedizione Split (IT 4-7 gg + Import 5-15 gg)"
+      : order.hasChinaImport
+        ? "Spedizione Import Su Ordinazione (5-15 gg lav.)"
+        : deliveryMode === "partner-workshop"
+          ? "Spedizione Magazzino Italia presso Officina Partner (4-7 gg)"
+          : "Spedizione Magazzino Italia a Domicilio (4-7 gg)";
+
     const itemsSummary = order.lines
       .map(
         (l) =>
@@ -149,6 +177,13 @@ export async function POST(request: Request) {
       )
       .join(" | ")
       .slice(0, 490);
+
+    const compactItemsPayload = JSON.stringify(
+      order.lines.map((l) => ({
+        productId: l.product.id,
+        quantity: l.quantity,
+      }))
+    ).slice(0, 490);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -170,15 +205,11 @@ export async function POST(request: Request) {
             },
             display_name:
               order.shippingEur === 0
-                ? deliveryMode === "partner-workshop"
-                  ? "Spedizione Gratuita presso Officina Partner 24/48h"
-                  : "Spedizione Express Gratuita 24/48h"
-                : deliveryMode === "partner-workshop"
-                  ? "Spedizione Express presso Officina Partner 24/48h"
-                  : "Spedizione Express Corriere 24/48h",
+                ? `${shippingLabel} — Gratuita`
+                : shippingLabel,
             delivery_estimate: {
-              minimum: { unit: "business_day", value: 1 },
-              maximum: { unit: "business_day", value: 2 },
+              minimum: { unit: "business_day", value: minBusinessDays },
+              maximum: { unit: "business_day", value: maxBusinessDays },
             },
           },
         },
@@ -203,9 +234,14 @@ export async function POST(request: Request) {
       metadata: {
         store: "STORE 101",
         deliveryMode,
+        splitPreference: order.hasSplitOrder
+          ? splitPreference ?? "split_shipments"
+          : "",
         promoCode: order.promo?.valid ? order.promo.code : "",
         pfuTotalEur: order.pfuTotalEur.toFixed(2),
+        shippingEur: order.shippingEur.toFixed(2),
         itemsSummary,
+        itemsJson: compactItemsPayload,
       },
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancelled`,

@@ -15,7 +15,6 @@ import {
   getUniqueBrands,
   getUniqueDiameters,
   getUniqueWidths,
-  PRODUCTS,
 } from "@/data/products";
 import { useCatalogFilter } from "@/context/CatalogFilterContext";
 import { SupportModal } from "@/components/SupportModal";
@@ -89,22 +88,28 @@ function FinderSelect({
 }
 
 export function TireFinderBar() {
-  const { filters, filteredProducts, hasActiveFilters, setFilter, resetFilters } =
-    useCatalogFilter();
+  const {
+    products,
+    filters,
+    filteredProducts,
+    hasActiveFilters,
+    setFilter,
+    resetFilters,
+  } = useCatalogFilter();
   const [supportOpen, setSupportOpen] = useState(false);
 
   // Opzioni a cascata intelligenti in base ai filtri selezionati
   const widthOptions = useMemo(
     () =>
-      getUniqueWidths().map((w) => ({
+      getUniqueWidths(products).map((w) => ({
         value: String(w),
         label: `${w} mm`,
       })),
-    []
+    [products]
   );
 
   const ratioOptions = useMemo(() => {
-    const relevant = PRODUCTS.filter(
+    const relevant = products.filter(
       (p) =>
         p.isTire &&
         (filters.width === "all" || String(p.width) === filters.width)
@@ -118,13 +123,13 @@ export function TireFinderBar() {
                 .filter((r): r is number => typeof r === "number")
             )
           ).sort((a, b) => a - b)
-        : getUniqueAspectRatios();
+        : getUniqueAspectRatios(products);
 
     return ratios.map((r) => ({ value: String(r), label: `/${r}` }));
-  }, [filters.width]);
+  }, [filters.width, products]);
 
   const diameterOptions = useMemo(() => {
-    const relevant = PRODUCTS.filter(
+    const relevant = products.filter(
       (p) =>
         p.isTire &&
         (filters.width === "all" || String(p.width) === filters.width) &&
@@ -140,10 +145,10 @@ export function TireFinderBar() {
                 .filter((d): d is string => typeof d === "string")
             )
           ).sort()
-        : getUniqueDiameters();
+        : getUniqueDiameters(products);
 
     return diams.map((d) => ({ value: d, label: d }));
-  }, [filters.width, filters.aspectRatio]);
+  }, [filters.width, filters.aspectRatio, products]);
 
   const seasonOptions = [
     { value: "estivi", label: "Estivi" },
@@ -152,8 +157,8 @@ export function TireFinderBar() {
   ];
 
   const brandOptions = useMemo(
-    () => getUniqueBrands().map((b) => ({ value: b, label: b })),
-    []
+    () => getUniqueBrands(products).map((b) => ({ value: b, label: b })),
+    [products]
   );
 
   const handleWidthChange = (val: string) => {
@@ -168,6 +173,18 @@ export function TireFinderBar() {
   };
 
   const handleSearchClick = () => {
+    if (
+      filters.width !== "all" &&
+      filters.aspectRatio !== "all" &&
+      filters.diameter !== "all"
+    ) {
+      const sizeQuery = `${filters.width}/${filters.aspectRatio}${filters.diameter}`;
+      void fetch("/api/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "search", sizeQuery }),
+      }).catch(() => undefined);
+    }
     document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" });
   };
 

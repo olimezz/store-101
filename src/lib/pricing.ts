@@ -1,4 +1,9 @@
-import { getProductById, type Product } from "@/data/products";
+import {
+  evaluateProductLogistics,
+  PRODUCTS,
+  type LogisticsAvailability,
+  type Product,
+} from "@/data/products";
 
 export const PFU_FEE_PER_TIRE_EUR = 3.5;
 export const FREE_SHIPPING_THRESHOLD_EUR = 150;
@@ -19,6 +24,7 @@ export interface PricedLineItem {
   fullSetDiscountEur: number;
   lineNetEur: number;
   pfuEur: number;
+  logistics: LogisticsAvailability;
 }
 
 export interface PromoResult {
@@ -33,6 +39,10 @@ export interface OrderCalculation {
   lines: PricedLineItem[];
   totalQuantity: number;
   totalTires: number;
+  totalFromItalia: number;
+  totalFromCina: number;
+  hasSplitOrder: boolean;
+  hasChinaImport: boolean;
   grossSubtotalEur: number;
   fullSetDiscountTotalEur: number;
   subtotalAfterSetDiscountEur: number;
@@ -92,20 +102,34 @@ export function evaluatePromoCode(
 }
 
 /**
- * Calcolo deterministico del carrello.
- * Sul server viene eseguito esclusivamente a partire dagli ID catalogo in `src/data/products.ts`
- * così da rendere impossibile qualsiasi manomissione prezzi lato client.
+ * Calcolo deterministico del carrello e della ripartizione logistica Italia/Cina.
+ * Sul server viene eseguito esclusivamente a partire dal catalogo autorevole.
  */
 export function calculateOrder(
   items: CartItemInput[],
-  promoCode?: string
+  promoCode?: string,
+  catalog: Product[] = PRODUCTS
 ): OrderCalculation {
+  const byId = new Map<string, Product>();
+  for (const p of catalog) {
+    byId.set(p.id, p);
+  }
+
   const lines: PricedLineItem[] = [];
 
   for (const item of items) {
-    const product = getProductById(item.productId);
-    if (!product || !product.inStock) continue;
+    const product = byId.get(item.productId);
+    if (!product) continue;
+    const totalAvail = product.stockItalia + product.stockCina;
+    if (!product.inStock || totalAvail <= 0) continue;
+
     const qty = Math.max(1, Math.min(20, Math.floor(item.quantity)));
+    const logistics = evaluateProductLogistics(
+      product.stockItalia,
+      product.stockCina,
+      qty
+    );
+
     const lineSubtotalEur = roundMoney(product.priceEur * qty);
     const qualifiesSetDiscount = product.isTire && qty >= FULL_SET_MIN_QTY;
     const fullSetDiscountEur = qualifiesSetDiscount
@@ -122,6 +146,7 @@ export function calculateOrder(
       fullSetDiscountEur,
       lineNetEur,
       pfuEur,
+      logistics,
     });
   }
 
@@ -130,6 +155,16 @@ export function calculateOrder(
     (sum, l) => sum + (l.product.isTire ? l.quantity : 0),
     0
   );
+  const totalFromItalia = lines.reduce(
+    (sum, l) => sum + l.logistics.fromItalia,
+    0
+  );
+  const totalFromCina = lines.reduce((sum, l) => sum + l.logistics.fromCina, 0);
+  const hasSplitOrder =
+    (totalFromItalia > 0 && totalFromCina > 0) ||
+    lines.some((l) => l.logistics.type === "split");
+  const hasChinaImport = totalFromCina > 0;
+
   const grossSubtotalEur = roundMoney(
     lines.reduce((sum, l) => sum + l.lineSubtotalEur, 0)
   );
@@ -162,6 +197,10 @@ export function calculateOrder(
     lines,
     totalQuantity,
     totalTires,
+    totalFromItalia,
+    totalFromCina,
+    hasSplitOrder,
+    hasChinaImport,
     grossSubtotalEur,
     fullSetDiscountTotalEur,
     subtotalAfterSetDiscountEur,

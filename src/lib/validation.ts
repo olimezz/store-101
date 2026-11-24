@@ -37,6 +37,9 @@ export const checkoutRequestSchema = z.object({
     }),
   }),
   deliveryMode: z.enum(["home", "partner-workshop"]).default("home"),
+  splitPreference: z
+    .enum(["split_shipments", "single_consolidated"])
+    .optional(),
 });
 
 export type CheckoutRequestPayload = z.infer<typeof checkoutRequestSchema>;

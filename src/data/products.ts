@@ -4,6 +4,7 @@ export type EuGrade = "A" | "B" | "C" | "D" | "E";
 
 export interface Product {
   id: string;
+  sku: string;
   badgeNumber: string;
   slug: string;
   brand: string;
@@ -18,7 +19,10 @@ export interface Product {
   sizeLabel: string;
   loadSpeedIndex?: string;
   priceEur: number;
+  costEur: number;
   compareAtEur?: number;
+  stockItalia: number;
+  stockCina: number;
   rating: number;
   reviewCount: number;
   image: string;
@@ -38,9 +42,90 @@ export interface Product {
   highlights: string[];
 }
 
+export type LogisticsAvailabilityType =
+  | "italia"
+  | "cina"
+  | "split"
+  | "out_of_stock";
+
+export interface LogisticsAvailability {
+  type: LogisticsAvailabilityType;
+  totalAvailable: number;
+  fromItalia: number;
+  fromCina: number;
+  badgeLabel: string;
+  deliveryEstimate: string;
+  canFulfill: boolean;
+}
+
+/**
+ * Regola logistica ufficiale STORE 101:
+ * - Magazzino Italia (stock_italia > 0): consegna 4-7 giorni lavorativi
+ * - Stock Cina / Import (stock_italia == 0 && stock_cina > 0): consegna 5-15 giorni lavorativi
+ * - Ordine Misto (Split Order): se qty > stock_italia ma stock_italia > 0 e stock_italia + stock_cina >= qty
+ */
+export function evaluateProductLogistics(
+  stockItalia: number,
+  stockCina: number,
+  requestedQty = 1
+): LogisticsAvailability {
+  const it = Math.max(0, Math.floor(stockItalia));
+  const cn = Math.max(0, Math.floor(stockCina));
+  const totalAvailable = it + cn;
+
+  if (totalAvailable === 0) {
+    return {
+      type: "out_of_stock",
+      totalAvailable: 0,
+      fromItalia: 0,
+      fromCina: 0,
+      badgeLabel: "Esaurito",
+      deliveryEstimate: "Attualmente non disponibile",
+      canFulfill: false,
+    };
+  }
+
+  if (it >= requestedQty) {
+    return {
+      type: "italia",
+      totalAvailable,
+      fromItalia: requestedQty,
+      fromCina: 0,
+      badgeLabel: "Disponibile in Italia",
+      deliveryEstimate: "Consegna in 4-7 giorni lavorativi",
+      canFulfill: true,
+    };
+  }
+
+  if (it === 0 && cn > 0) {
+    return {
+      type: "cina",
+      totalAvailable,
+      fromItalia: 0,
+      fromCina: Math.min(requestedQty, cn),
+      badgeLabel: "Disponibile su ordinazione",
+      deliveryEstimate: "Consegna in 5-15 giorni lavorativi",
+      canFulfill: cn >= requestedQty,
+    };
+  }
+
+  // Split order: una parte in Italia, il resto da stock Cina
+  const remainingFromCina = Math.min(requestedQty - it, cn);
+  return {
+    type: "split",
+    totalAvailable,
+    fromItalia: it,
+    fromCina: remainingFromCina,
+    badgeLabel: `Split IT/CN (${it} IT + ${remainingFromCina} CN)`,
+    deliveryEstimate: `${it} pz in 4-7 gg + ${remainingFromCina} pz in 5-15 gg lav.`,
+    canFulfill: totalAvailable >= requestedQty,
+  };
+}
+
 export const PRODUCTS: Product[] = [
   {
     id: "prod_michelin_ps4s_245_40_18",
+    sku: "MIC-PS4S-2454018",
     badgeNumber: "01",
     slug: "michelin-pilot-sport-4s-245-40r18",
     brand: "MICHELIN",
@@ -55,7 +140,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "245/40R18",
     loadSpeedIndex: "97Y XL",
     priceEur: 289.99,
+    costEur: 208.0,
     compareAtEur: 319.0,
+    stockItalia: 18,
+    stockCina: 40,
     rating: 5.0,
     reviewCount: 418,
     image: "/images/tire-summer.jpg",
@@ -63,7 +151,7 @@ export const PRODUCTS: Product[] = [
     featured: true,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "A",
@@ -83,6 +171,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_bridgestone_blizzak_215_60_16",
+    sku: "BRI-WS90-2156016",
     badgeNumber: "02",
     slug: "bridgestone-blizzak-ws90-215-60r16",
     brand: "BRIDGESTONE",
@@ -97,7 +186,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "215/60R16",
     loadSpeedIndex: "99H XL",
     priceEur: 165.5,
+    costEur: 116.0,
     compareAtEur: 184.0,
+    stockItalia: 2,
+    stockCina: 28,
     rating: 4.5,
     reviewCount: 274,
     image: "/images/tire-winter.jpg",
@@ -105,7 +197,7 @@ export const PRODUCTS: Product[] = [
     featured: true,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 8 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "Split IT/CN",
     euLabel: {
       fuel: "C",
       wetGrip: "A",
@@ -125,6 +217,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_goodyear_weatherready_235_55_17",
+    sku: "GDY-AWR-2355517",
     badgeNumber: "03",
     slug: "goodyear-assurance-weatherready-235-55r17",
     brand: "GOODYEAR",
@@ -139,7 +232,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "235/55R17",
     loadSpeedIndex: "103V XL",
     priceEur: 214.0,
+    costEur: 151.0,
     compareAtEur: 238.0,
+    stockItalia: 0,
+    stockCina: 36,
     rating: 4.8,
     reviewCount: 312,
     image: "/images/tire-allseason.jpg",
@@ -147,7 +243,7 @@ export const PRODUCTS: Product[] = [
     featured: true,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "Import 5-15 gg",
     euLabel: {
       fuel: "B",
       wetGrip: "A",
@@ -167,6 +263,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_pirelli_pzero_255_35_19",
+    sku: "PIR-PZ4-2553519",
     badgeNumber: "04",
     slug: "pirelli-p-zero-pz4-255-35r19",
     brand: "PIRELLI",
@@ -181,7 +278,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "255/35R19",
     loadSpeedIndex: "96Y XL",
     priceEur: 312.0,
+    costEur: 224.0,
     compareAtEur: 345.0,
+    stockItalia: 12,
+    stockCina: 22,
     rating: 4.9,
     reviewCount: 289,
     image: "/images/tire-summer.jpg",
@@ -189,7 +289,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "A",
@@ -208,6 +308,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_continental_ts870_205_55_16",
+    sku: "CON-TS870-2055516",
     badgeNumber: "05",
     slug: "continental-wintercontact-ts-870-205-55r16",
     brand: "CONTINENTAL",
@@ -222,7 +323,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "205/55R16",
     loadSpeedIndex: "91H",
     priceEur: 124.9,
+    costEur: 86.0,
     compareAtEur: 139.0,
+    stockItalia: 24,
+    stockCina: 50,
     rating: 4.9,
     reviewCount: 510,
     image: "/images/tire-winter.jpg",
@@ -230,7 +334,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 8 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "B",
@@ -249,6 +353,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_michelin_crossclimate2_225_45_17",
+    sku: "MIC-CC2-2254517",
     badgeNumber: "06",
     slug: "michelin-crossclimate-2-225-45r17",
     brand: "MICHELIN",
@@ -263,7 +368,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "225/45R17",
     loadSpeedIndex: "94Y XL",
     priceEur: 179.5,
+    costEur: 127.0,
     compareAtEur: 199.0,
+    stockItalia: 0,
+    stockCina: 18,
     rating: 4.9,
     reviewCount: 642,
     image: "/images/tire-allseason.jpg",
@@ -271,7 +379,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "Import 5-15 gg",
     euLabel: {
       fuel: "B",
       wetGrip: "B",
@@ -290,6 +398,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_pirelli_scorpion_235_55_19",
+    sku: "PIR-SCV-2355519",
     badgeNumber: "07",
     slug: "pirelli-scorpion-verde-all-season-235-55r19",
     brand: "PIRELLI",
@@ -304,7 +413,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "235/55R19",
     loadSpeedIndex: "105V XL",
     priceEur: 229.0,
+    costEur: 162.0,
     compareAtEur: 254.0,
+    stockItalia: 8,
+    stockCina: 16,
     rating: 4.7,
     reviewCount: 198,
     image: "/images/tire-suv.jpg",
@@ -312,7 +424,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 8 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "B",
       wetGrip: "B",
@@ -331,6 +443,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_bridgestone_potenza_225_45_18",
+    sku: "BRI-POT-2254518",
     badgeNumber: "08",
     slug: "bridgestone-potenza-sport-225-45r18",
     brand: "BRIDGESTONE",
@@ -345,7 +458,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "225/45R18",
     loadSpeedIndex: "95Y XL",
     priceEur: 184.9,
+    costEur: 131.0,
     compareAtEur: 205.0,
+    stockItalia: 16,
+    stockCina: 20,
     rating: 4.8,
     reviewCount: 231,
     image: "/images/tire-summer.jpg",
@@ -353,7 +469,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "A",
@@ -372,6 +488,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_continental_sc7_245_40_19",
+    sku: "CON-SC7-2454019",
     badgeNumber: "09",
     slug: "continental-sportcontact-7-245-40r19",
     brand: "CONTINENTAL",
@@ -386,7 +503,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "245/40R19",
     loadSpeedIndex: "98Y XL",
     priceEur: 268.0,
+    costEur: 192.0,
     compareAtEur: 295.0,
+    stockItalia: 0,
+    stockCina: 24,
     rating: 5.0,
     reviewCount: 356,
     image: "/images/tire-summer.jpg",
@@ -394,7 +514,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 6 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "Import 5-15 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "A",
@@ -413,6 +533,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_goodyear_ultragrip_225_45_17",
+    sku: "GDY-UGP3-2254517",
     badgeNumber: "10",
     slug: "goodyear-ultragrip-performance-3-225-45r17",
     brand: "GOODYEAR",
@@ -427,15 +548,18 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "225/45R17",
     loadSpeedIndex: "94V XL",
     priceEur: 168.0,
+    costEur: 118.0,
     compareAtEur: 189.0,
+    stockItalia: 0,
+    stockCina: 0,
     rating: 4.7,
     reviewCount: 164,
     image: "/images/tire-winter.jpg",
     isTire: true,
     featured: false,
-    inStock: true,
+    inStock: false,
     dotGuarantee: "DOT 2026 (< 8 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "Esaurito",
     euLabel: {
       fuel: "C",
       wetGrip: "B",
@@ -454,6 +578,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_michelin_alpin5_suv_255_50_19",
+    sku: "MIC-PA5S-2555019",
     badgeNumber: "11",
     slug: "michelin-pilot-alpin-5-suv-255-50r19",
     brand: "MICHELIN",
@@ -468,7 +593,10 @@ export const PRODUCTS: Product[] = [
     sizeLabel: "255/50R19",
     loadSpeedIndex: "107V XL",
     priceEur: 276.0,
+    costEur: 198.0,
     compareAtEur: 308.0,
+    stockItalia: 6,
+    stockCina: 14,
     rating: 4.9,
     reviewCount: 207,
     image: "/images/tire-suv.jpg",
@@ -476,7 +604,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "DOT 2026 (< 8 mesi)",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     euLabel: {
       fuel: "C",
       wetGrip: "B",
@@ -495,6 +623,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "prod_kit_tpms_dinamometrica",
+    sku: "S101-KIT-TPMSPRO",
     badgeNumber: "12",
     slug: "kit-manutenzione-pro-tpms-dinamometrica",
     brand: "STORE 101 PRO",
@@ -505,7 +634,10 @@ export const PRODUCTS: Product[] = [
     vehicleLabel: "Accessori",
     sizeLabel: "Universale • Kit 6 pz",
     priceEur: 89.9,
+    costEur: 49.0,
     compareAtEur: 109.0,
+    stockItalia: 32,
+    stockCina: 60,
     rating: 4.8,
     reviewCount: 143,
     image: "/images/tire-accessory.svg",
@@ -513,7 +645,7 @@ export const PRODUCTS: Product[] = [
     featured: false,
     inStock: true,
     dotGuarantee: "Garanzia 24 Mesi",
-    shippingBadge: "Spedizione 24/48h",
+    shippingBadge: "IT 4-7 gg",
     shortDescription:
       "Manometro digitale ad alta precisione (±0,05 bar), chiave dinamometrica 28-210 Nm e 4 tappi in lega anodizzata.",
     description:
@@ -535,28 +667,28 @@ export function getProductBySlug(slug: string): Product | undefined {
   return PRODUCTS.find((p) => p.slug === slug);
 }
 
-export function getUniqueWidths(): number[] {
-  const widths = PRODUCTS.map((p) => p.width).filter(
+export function getUniqueWidths(catalog: Product[] = PRODUCTS): number[] {
+  const widths = catalog.map((p) => p.width).filter(
     (w): w is number => typeof w === "number"
   );
   return Array.from(new Set(widths)).sort((a, b) => a - b);
 }
 
-export function getUniqueAspectRatios(): number[] {
-  const ratios = PRODUCTS.map((p) => p.aspectRatio).filter(
+export function getUniqueAspectRatios(catalog: Product[] = PRODUCTS): number[] {
+  const ratios = catalog.map((p) => p.aspectRatio).filter(
     (r): r is number => typeof r === "number"
   );
   return Array.from(new Set(ratios)).sort((a, b) => a - b);
 }
 
-export function getUniqueDiameters(): string[] {
-  const diameters = PRODUCTS.map((p) => p.diameter).filter(
+export function getUniqueDiameters(catalog: Product[] = PRODUCTS): string[] {
+  const diameters = catalog.map((p) => p.diameter).filter(
     (d): d is string => typeof d === "string"
   );
   return Array.from(new Set(diameters)).sort();
 }
 
-export function getUniqueBrands(): string[] {
-  const brands = PRODUCTS.filter((p) => p.isTire).map((p) => p.brand);
+export function getUniqueBrands(catalog: Product[] = PRODUCTS): string[] {
+  const brands = catalog.filter((p) => p.isTire).map((p) => p.brand);
   return Array.from(new Set(brands)).sort();
 }

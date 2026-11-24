@@ -124,6 +124,14 @@ export function Footer() {
                   Termini di Vendita, Recesso 14gg &amp; PFU
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/admin"
+                  className="text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Area Riservata Gestionale / CRM
+                </Link>
+              </li>
               <li className="pt-1">
                 <button
                   type="button"

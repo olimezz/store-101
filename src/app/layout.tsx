@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/Providers";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { StorefrontChrome } from "@/components/StorefrontChrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s | STORE 101",
   },
   description:
-    "Acquista online pneumatici premium Michelin, Bridgestone, Goodyear, Pirelli e Continental. Spedizione Express 24/48h, sconto -5% su 4 gomme e checkout sicuro Stripe.",
+    "Acquista online pneumatici premium Michelin, Bridgestone, Goodyear, Pirelli e Continental. Logistica integrata Italia/Import, sconto -5% su 4 gomme e checkout sicuro Stripe.",
   keywords: [
     "pneumatici online",
     "gomme auto",
@@ -48,11 +47,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] antialiased">
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          <StorefrontChrome>{children}</StorefrontChrome>
         </Providers>
       </body>
     </html>

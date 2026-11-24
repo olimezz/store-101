@@ -4,6 +4,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -43,6 +44,8 @@ const DEFAULT_FILTERS: CatalogFilters = {
 };
 
 interface CatalogFilterContextValue {
+  products: Product[];
+  refreshProducts: () => Promise<void>;
   filters: CatalogFilters;
   filteredProducts: Product[];
   hasActiveFilters: boolean;
@@ -63,7 +66,25 @@ export function CatalogFilterProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
   const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
+
+  const refreshProducts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/products", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { products?: Product[] };
+      if (Array.isArray(data.products) && data.products.length > 0) {
+        setProducts(data.products);
+      }
+    } catch {
+      // Mantiene il fallback statico in caso di offline
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshProducts();
+  }, [refreshProducts]);
 
   const setFilter = useCallback(
     <K extends keyof CatalogFilters>(key: K, value: CatalogFilters[K]) => {
@@ -105,7 +126,7 @@ export function CatalogFilterProvider({
   const filteredProducts = useMemo(() => {
     const query = filters.search.trim().toLowerCase().replace(/\s+/g, "");
 
-    const matched = PRODUCTS.filter((product) => {
+    const matched = products.filter((product) => {
       if (filters.category === "auto" && product.vehicle !== "auto") {
         return false;
       }
@@ -151,6 +172,7 @@ export function CatalogFilterProvider({
 
       if (query.length > 0) {
         const searchable = [
+          product.sku,
           product.brand,
           product.model,
           product.sizeLabel,
@@ -180,7 +202,9 @@ export function CatalogFilterProvider({
         sorted.sort((a, b) => b.priceEur - a.priceEur);
         break;
       case "rating":
-        sorted.sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+        sorted.sort(
+          (a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount
+        );
         break;
       case "featured":
       default:
@@ -189,10 +213,12 @@ export function CatalogFilterProvider({
     }
 
     return sorted;
-  }, [filters]);
+  }, [filters, products]);
 
   const value = useMemo<CatalogFilterContextValue>(
     () => ({
+      products,
+      refreshProducts,
       filters,
       filteredProducts,
       hasActiveFilters,
@@ -201,6 +227,8 @@ export function CatalogFilterProvider({
       resetFilters,
     }),
     [
+      products,
+      refreshProducts,
       filters,
       filteredProducts,
       hasActiveFilters,

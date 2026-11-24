@@ -13,6 +13,7 @@ import {
   type CartItemInput,
   type OrderCalculation,
 } from "@/lib/pricing";
+import { useCatalogFilter } from "@/context/CatalogFilterContext";
 
 interface PersistedCart {
   items: CartItemInput[];
@@ -40,6 +41,7 @@ const STORAGE_KEY = "store101_cart_v1";
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { products } = useCatalogFilter();
   const [items, setItems] = useState<CartItemInput[]>([]);
   const [promoCode, setPromoCode] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -93,6 +95,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { productId, quantity: qty }];
     });
+    // Evento funnel cookieless anonimo
+    void fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "cart_add" }),
+    }).catch(() => undefined);
   }, []);
 
   const updateQuantity = useCallback((productId: string, quantity: number) => {
@@ -129,8 +137,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const closeCart = useCallback(() => setIsOpen(false), []);
 
   const order = useMemo(
-    () => calculateOrder(items, promoCode),
-    [items, promoCode]
+    () => calculateOrder(items, promoCode, products),
+    [items, promoCode, products]
   );
 
   const value = useMemo<CartContextValue>(

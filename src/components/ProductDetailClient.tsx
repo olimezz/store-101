@@ -15,9 +15,10 @@ import {
   Star,
   Truck,
 } from "lucide-react";
-import type { Product } from "@/data/products";
+import { evaluateProductLogistics, type Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import { EuEnergyLabel, SeasonBadge } from "@/components/SeasonBadge";
+import { LogisticsBadge } from "@/components/LogisticsBadge";
 import {
   FULL_SET_DISCOUNT_RATE,
   PFU_FEE_PER_TIRE_EUR,
@@ -42,8 +43,14 @@ export function ProductDetailClient({
     : 0;
   const pfuTotal = product.isTire ? PFU_FEE_PER_TIRE_EUR * quantity : 0;
   const estimatedTotal = lineGross - setDiscount + pfuTotal;
+  const logistics = evaluateProductLogistics(
+    product.stockItalia,
+    product.stockCina,
+    quantity
+  );
 
   const handleAdd = (openDrawerAfter = false) => {
+    if (!logistics.canFulfill) return;
     addItem(product.id, quantity);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1600);
@@ -142,6 +149,10 @@ export function ProductDetailClient({
                 <span className="rounded-lg bg-emerald-50 px-3 py-1 text-emerald-700">
                   {product.dotGuarantee}
                 </span>
+              </div>
+
+              <div className="mt-3">
+                <LogisticsBadge logistics={logistics} />
               </div>
 
               <p className="mt-4 text-sm leading-relaxed text-[#475569] sm:text-base">
