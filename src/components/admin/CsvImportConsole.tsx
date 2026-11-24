@@ -150,10 +150,10 @@ export function CsvImportConsole() {
       <div className="flex flex-col gap-4 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-[#0F172A]">
-            Sincronizzazione Serale CSV
+            Sincronizzazione CSV
           </h1>
           <p className="mt-1 text-xs text-[#475569]">
-            Carica il file CSV serale per sincronizzare stock Italia (4-7 gg),
+            Carica il file CSV per sincronizzare stock Italia (4-7 gg),
             stock Cina (5-15 gg lav.), prezzi e vendite con anteprima dry-run.
           </p>
         </div>
@@ -204,7 +204,7 @@ export function CsvImportConsole() {
             )}
           </div>
           <p className="mt-4 font-display text-base font-extrabold text-[#0F172A]">
-            Trascina qui il file CSV serale oppure clicca per selezionarlo
+            Trascina qui il file CSV oppure clicca per selezionarlo
           </p>
           <p className="mt-1 max-w-xl text-xs text-[#475569]">
             Colonne supportate:{" "}
@@ -482,12 +482,12 @@ export function CsvImportConsole() {
         </div>
       ) : null}
 
-      {/* Storico Upload Serali (Audit Log + Rollback) */}
+      {/* Storico Upload CSV (Audit Log + Rollback) */}
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-card sm:p-6">
         <div className="flex items-center gap-2">
           <History className="h-5 w-5 text-[#0052FF]" />
           <h2 className="font-display text-lg font-extrabold text-[#0F172A]">
-            Storico Upload Serali &amp; Rollback
+            Storico Upload CSV &amp; Rollback
           </h2>
         </div>
         <p className="mt-1 text-xs text-[#475569]">
@@ -499,7 +499,7 @@ export function CsvImportConsole() {
           {history.length === 0 ? (
             <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-center text-xs font-semibold text-[#475569]">
               Nessun file CSV caricato finora. Trascina il tuo primo file CSV
-              serale qui sopra per iniziare la sincronizzazione reale.
+              qui sopra per iniziare la sincronizzazione reale.
             </p>
           ) : (
             history.map((entry) => (

@@ -17,7 +17,7 @@ export async function GET() {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition":
-        'attachment; filename="store101_template_serale.csv"',
+        'attachment; filename="store101_template.csv"',
       "X-Content-Type-Options": "nosniff",
     },
   });

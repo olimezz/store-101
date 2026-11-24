@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/import-csv",
-    label: "Importa CSV Serale",
+    label: "Importa CSV",
     mobileLabel: "Upload CSV",
     icon: FileSpreadsheet,
     inBottomNav: true,

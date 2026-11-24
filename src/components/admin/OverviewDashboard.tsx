@@ -301,7 +301,7 @@ export function OverviewDashboard() {
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-[#0052FF] px-4 text-xs font-extrabold uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-[#003ECC]"
           >
             <UploadCloud className="h-4 w-4" />
-            + Carica CSV Serale
+            + Carica CSV
           </Link>
         </div>
       </div>
@@ -663,12 +663,12 @@ export function OverviewDashboard() {
 
             {/* Destra (~35% -> 4 cols) */}
             <div className="space-y-6 xl:col-span-4">
-              {/* Quick Dropzone CSV Serale */}
+              {/* Quick Dropzone CSV */}
               <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-card">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="flex items-center gap-2 font-display text-base font-extrabold text-[#0F172A]">
                     <FileSpreadsheet className="h-4 w-4 text-[#0052FF]" />
-                    Quick Sync CSV Serale
+                    Quick Sync CSV
                   </h2>
                   <a
                     href="/api/admin/csv/template"
@@ -678,7 +678,7 @@ export function OverviewDashboard() {
                   </a>
                 </div>
                 <p className="mt-1 text-xs text-[#475569]">
-                  Trascina qui il file CSV della sera per anteprima dry-run
+                  Trascina qui il file CSV per anteprima dry-run
                   istantanea di giacenze Italia &amp; Cina.
                 </p>
 
