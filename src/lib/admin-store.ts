@@ -22,14 +22,14 @@ import {
 } from "@/lib/csv-security";
 import { sanitizeText } from "@/lib/sanitize";
 
-// Versione 2: database pulito senza dati fittizi o inventati
-const DB_VERSION = 2;
+// Versione 3: database completamente vuoto (nessun prodotto o stock fittizio, 100% dati reali da CSV)
+const DB_VERSION = 3;
 
 function resolveDbPath(): string {
   if (process.env.VERCEL === "1" || process.env.NODE_ENV === "production") {
-    return path.join("/tmp", "store101-admin-db-v2.json");
+    return path.join("/tmp", "store101-admin-db-v3.json");
   }
-  return path.join(process.cwd(), ".data", "store101-admin-db-v2.json");
+  return path.join(process.cwd(), ".data", "store101-admin-db-v3.json");
 }
 
 function formatDateYmd(date: Date): string {
@@ -44,13 +44,13 @@ function formatDayLabel(date: Date): string {
 }
 
 /**
- * Inizializza il database completamente vuoto per ordini, CRM, analytics,
+ * Inizializza il database completamente vuoto per catalogo, stock, ordini, CRM, analytics,
  * ricerche, storico CSV e audit log: verranno mostrati esclusivamente dati reali.
  */
 function buildCleanDatabase(): StoreDatabase {
   return {
     version: DB_VERSION,
-    products: structuredClone(PRODUCTS),
+    products: [],
     orders: [],
     customers: [],
     dailyAnalytics: [],

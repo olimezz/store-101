@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const QUICK_PILLS: { key: CategoryNavKey; label: string; activeClass: string }[] = [
   {
     key: "tutti",
-    label: "Tutti (12)",
+    label: "Tutti",
     activeClass: "bg-[#0F172A] text-white border-[#0F172A]",
   },
   {
@@ -46,6 +46,7 @@ const QUICK_PILLS: { key: CategoryNavKey; label: string; activeClass: string }[]
 
 export function CatalogSection() {
   const {
+    products,
     filters,
     filteredProducts,
     hasActiveFilters,
@@ -147,20 +148,25 @@ export function CatalogSection() {
       {visibleProducts.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-[#E2E8F0] bg-white p-10 text-center shadow-card">
           <p className="font-display text-xl font-extrabold text-[#0F172A]">
-            Nessun pneumatico corrisponde esattamente a questa combinazione
+            {products.length === 0
+              ? "Nessun pneumatico presente in catalogo"
+              : "Nessun pneumatico corrisponde esattamente a questa combinazione"}
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-[#475569]">
-            Prova ad allargare i filtri di misura oppure chiedi ai nostri tecnici:
-            possiamo ordinare qualsiasi misura su richiesta in 24/48h.
+            {products.length === 0
+              ? "Nessuna giacenza o prodotto fittizio presente. Il catalogo e le giacenze reali verranno sincronizzati tramite importazione CSV."
+              : "Prova ad allargare i filtri di misura oppure chiedi ai nostri tecnici: possiamo ordinare qualsiasi misura su richiesta in 24/48h."}
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="min-h-[46px] rounded-xl bg-[#0052FF] px-6 text-sm font-bold text-white hover:bg-[#003ECC]"
-            >
-              Mostra tutto il catalogo
-            </button>
+            {products.length > 0 ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="min-h-[46px] rounded-xl bg-[#0052FF] px-6 text-sm font-bold text-white hover:bg-[#003ECC]"
+              >
+                Mostra tutto il catalogo
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setSupportOpen(true)}

@@ -71,7 +71,7 @@ export function CatalogFilterProvider({
       const res = await fetch("/api/products", { cache: "no-store" });
       if (!res.ok) return;
       const data = (await res.json()) as { products?: Product[] };
-      if (Array.isArray(data.products) && data.products.length > 0) {
+      if (Array.isArray(data.products)) {
         setProducts(data.products);
       }
     } catch {

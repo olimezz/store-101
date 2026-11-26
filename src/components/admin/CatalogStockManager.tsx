@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   Check,
   Edit3,
+  FileSpreadsheet,
   Loader2,
+  Package,
   Search,
   Ship,
   Warehouse,
@@ -153,6 +156,27 @@ export function CatalogStockManager() {
 
       {loading ? (
         <div className="h-64 animate-pulse rounded-2xl border border-[#E2E8F0] bg-white" />
+      ) : products.length === 0 ? (
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-12 text-center shadow-card">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0052FF]/10 text-[#0052FF]">
+            <Package className="h-7 w-7" />
+          </div>
+          <h3 className="mt-4 font-display text-lg font-bold text-[#0F172A]">
+            Nessun prodotto o stock presente in catalogo
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[#475569]">
+            Non è stato ancora caricato alcuno stock fittizio. Carica il file CSV per sincronizzare automaticamente le giacenze reali di Magazzino Italia (4-7 gg) e Fornitore Cina (5-15 gg).
+          </p>
+          <div className="mt-6">
+            <Link
+              href="/admin/import-csv"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-[#0052FF] px-5 text-sm font-bold text-white hover:bg-[#003ECC]"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Vai all&apos;Importazione CSV
+            </Link>
+          </div>
+        </div>
       ) : (
         <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-card">
           {/* Desktop Table */}
@@ -171,15 +195,25 @@ export function CatalogStockManager() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0] tabular-nums">
-                {filtered.map((p) => {
-                  const isEditing = editingId === p.id;
-                  const marginEur = Math.max(0, p.priceEur - p.costEur);
-                  const marginPct =
-                    p.priceEur > 0 ? Math.round((marginEur / p.priceEur) * 100) : 0;
-                  const total = p.stockItalia + p.stockCina;
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-5 py-10 text-center text-sm font-semibold text-[#475569]"
+                    >
+                      Nessun pneumatico corrisponde ai filtri selezionati.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((p) => {
+                    const isEditing = editingId === p.id;
+                    const marginEur = Math.max(0, p.priceEur - p.costEur);
+                    const marginPct =
+                      p.priceEur > 0 ? Math.round((marginEur / p.priceEur) * 100) : 0;
+                    const total = p.stockItalia + p.stockCina;
 
-                  return (
-                    <tr key={p.id} className="hover:bg-[#F8FAFC]/70">
+                    return (
+                      <tr key={p.id} className="hover:bg-[#F8FAFC]/70">
                       <td className="px-5 py-3.5">
                         <p className="font-mono text-[11px] font-bold text-[#0052FF]">
                           {p.sku}
@@ -311,17 +345,23 @@ export function CatalogStockManager() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
               </tbody>
             </table>
           </div>
 
           {/* Mobile Responsive Cards */}
           <div className="divide-y divide-[#E2E8F0] lg:hidden">
-            {filtered.map((p) => {
-              const isEditing = editingId === p.id;
-              return (
-                <div key={p.id} className="space-y-3 p-4 text-xs tabular-nums">
+            {filtered.length === 0 ? (
+              <div className="p-8 text-center text-sm font-semibold text-[#475569]">
+                Nessun pneumatico corrisponde ai filtri selezionati.
+              </div>
+            ) : (
+              filtered.map((p) => {
+                const isEditing = editingId === p.id;
+                return (
+                  <div key={p.id} className="space-y-3 p-4 text-xs tabular-nums">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-mono text-[11px] font-bold text-[#0052FF]">
@@ -406,7 +446,8 @@ export function CatalogStockManager() {
                   )}
                 </div>
               );
-            })}
+            })
+          )}
           </div>
         </div>
       )}
