@@ -36,9 +36,9 @@ const NAV_ITEMS = [
   {
     href: "/admin/catalogo",
     label: "Catalogo & Stock (IT/CN)",
-    mobileLabel: "Stock",
+    mobileLabel: "Stock IT/CN",
     icon: Package,
-    inBottomNav: false,
+    inBottomNav: true,
   },
   {
     href: "/admin/ordini",
@@ -222,10 +222,10 @@ export function AdminShell({
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (4 quick tabs, >= 44x44px touch targets) */}
+      {/* Mobile Bottom Navigation Bar (5 quick tabs, >= 44x44px touch targets) */}
       <nav
         aria-label="Navigazione rapida mobile"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E2E8F0] bg-white/95 backdrop-blur-md lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#E2E8F0] bg-white/95 backdrop-blur-md lg:hidden"
       >
         {bottomNavItems.map((item) => {
           const Icon = item.icon;
@@ -235,12 +235,12 @@ export function AdminShell({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-h-[58px] flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors",
+                "flex min-h-[58px] flex-col items-center justify-center gap-1 px-0.5 text-center text-[10px] sm:text-[11px] font-bold transition-colors",
                 active ? "text-[#0052FF]" : "text-[#475569]"
               )}
             >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              <span>{item.mobileLabel}</span>
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="truncate max-w-full">{item.mobileLabel}</span>
             </Link>
           );
         })}
